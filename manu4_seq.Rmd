@@ -1,0 +1,498 @@
+---
+title: "manuscript_4_sequencing_overview"
+author: "Katja K"
+output: 
+  rmarkdown::html_document:
+    toc: true
+    depth: 3
+    number_sections: true  
+    theme: united  
+    highlight: tango
+---
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r wrap-hook, include=FALSE}
+library(knitr)
+hook_output = knit_hooks$get('output')
+knit_hooks$set(output = function(x, options) {
+  # this hook is used only when the linewidth option is not NULL
+  if (!is.null(n <- options$linewidth)) {
+    x = knitr:::split_lines(x)
+    # any lines wider than n should be wrapped
+    if (any(nchar(x) > n)) x = strwrap(x, width = n)
+    x = paste(x, collapse = '\n')
+  }
+  hook_output(x, options)
+})
+```
+
+```{r packages, include=FALSE}
+
+library(ggplot2)
+library(vegan)
+library("matR")
+library(DESeq2)
+library(edgeR)
+library(cowplot)
+library(ggrepel)
+library(dplyr)
+
+```
+
+# Metadata 
+
+```{r metadata, results='hide'}
+
+sampledata <- read.table("../../seq_data/sample.data", row.names = 1, header=T)
+sampledata$Time <- as.factor(sampledata$Time)
+sampledata$Farm <- as.factor(sampledata$Farm)
+
+```
+
+# Counts EZfam
+## filterByExpr
+
+```{r filter counts EZfam, warning=FALSE, message=FALSE}
+
+gene_counts_EZfam <- read.table("../../seq_data/fam_counts.tsv", header = T, row.names = 1, check.names = F)
+dim(gene_counts_EZfam)
+sum(gene_counts_EZfam)
+
+EZfam_dgelist <- DGEList(gene_counts_EZfam)
+EZfam_dgelist <- calcNormFactors(EZfam_dgelist,method=c("TMM")) #trimmed mean of M-values
+
+table(rowSums(EZfam_dgelist$counts==0)==40)
+
+#automatic way to filter genes
+keep.exprs <- filterByExpr(EZfam_dgelist)
+
+#number of genes left after filtering
+EZfam_dgelist <- EZfam_dgelist[keep.exprs,, keep.lib.sizes=FALSE]
+dim(EZfam_dgelist)
+
+sum(EZfam_dgelist$counts) 
+307301666/307311474  
+
+#write.table(EZfam_dgelist$counts, "../../seq_data/EZfam_filt_counts.tsv",row.names = TRUE, col.names = TRUE, sep = "\t" )
+
+``` 
+
+## order
+
+```{r order EZfam, message=FALSE, warning=FALSE, echo=FALSE}
+
+EZfam_dgelist <- read.table("../../seq_data/EZfam_filt_counts.tsv", header = T, row.names = 1, check.names = F)
+
+all(colnames(EZfam_dgelist) == rownames(sampledata))
+sort(colnames(EZfam_dgelist))
+sort(rownames(sampledata))
+
+EZfam_dgelist_ord <- match(rownames(sampledata), colnames(EZfam_dgelist))
+EZfam_ord <- EZfam_dgelist[,EZfam_dgelist_ord]
+all(rownames(sampledata) == colnames(EZfam_ord))
+
+EZfam_dgelist <- EZfam_ord 
+
+```
+
+## VST EZfam
+
+```{r VST EZfam, message=FALSE, warning=FALSE}
+
+set.seed(6253)
+dd_fam <- DESeqDataSetFromMatrix(countData=EZfam_dgelist,colData=sampledata,design=~Country+Treatment+Time)
+
+vst_EZfam <- varianceStabilizingTransformation(dd_fam)
+
+p1_EZfam_country <- plotPCA(vst_EZfam, "Country")
+p2_EZfam_treat <- plotPCA(vst_EZfam, "Treatment")
+p3_EZfam_time <- plotPCA(vst_EZfam, "Time")
+p4_EZfam_farm <- plotPCA(vst_EZfam, "Farm")
+plot_grid(p1_EZfam_country, p2_EZfam_treat, p3_EZfam_time, p4_EZfam_farm)
+
+```
+
+## Permanova
+
+```{r permanova EZfam, message=FALSE, warning=FALSE}
+
+vst_EZfam_counts <- assay(vst_EZfam)
+vst_EZfam_counts <- t(vst_EZfam_counts)
+
+set.seed(5392)
+perm1_EZfam <- adonis(vst_EZfam_counts ~ Country+Treatment+Time+Country:Treatment+Country:Time+Treatment:Time+Country:Treatment:Time, 
+                   data=sampledata, permutations=999, strata = sampledata$Farm)
+perm1_EZfam
+
+```
+***Strong country effect, interaction between country:time***
+
+## PCA VST EZfam
+
+```{r PCA EZfam VST, message=FALSE, warning=FALSE}
+
+#samples should be rows,variables columns
+vst_EZfam_pca <- prcomp(vst_EZfam_counts)
+
+PCA_vst_EZfam <- data.frame(vst_EZfam_pca$x, Country=sampledata$Country, Farm=sampledata$Farm, Time=sampledata$Time, Treat=sampledata$Treatment, Cou_Treat=sampledata$Cou_Treat)
+
+PCA_vst_EZfam$Cou_Treat <- factor(PCA_vst_EZfam$Cou_Treat, levels = c("ES_C", "ES_D", "SE_C", "SE_D"), labels = c("Spain + C", "Spain + D", "Sweden + C", "Sweden + D"))
+
+ggplot() + geom_point(data=PCA_vst_EZfam, mapping=aes(x=PC1, y=PC2, color = Cou_Treat, shape=Time), size = 10,alpha=0.8) +
+    geom_vline(xintercept = 0, linetype=2) +
+    geom_hline(yintercept = 0, linetype=2) +
+    theme_bw() +
+    theme(panel.grid.major = element_blank(), 
+          panel.grid.minor = element_blank()) + labs(colour = "Country") +  
+    scale_color_manual(values=c("#4e032c","#b10764","#034e4b","#069891")) + labs(colour = "Country + drought treatment", shape= "Sampling time") + guides(color = guide_legend(order = 1),
+         shape = guide_legend(order = 2)) +
+  theme(axis.text = element_text(size = 12)) + 
+    theme(axis.title = element_text(size = 12)) +
+    theme(legend.title = element_text(size = 12)) + 
+    theme(legend.text = element_text(size = 12))
+
+```
+
+## Batch correction EZfam
++ correction on countries
++ PERMANOVA for batch
+
+```{r batch EZfam, message=FALSE,warning=FALSE}
+
+vst_fam_remCOUNTRY <- vst_EZfam
+assay(vst_fam_remCOUNTRY) <- limma::removeBatchEffect(assay(vst_fam_remCOUNTRY), vst_fam_remCOUNTRY$Country)
+
+p1_EZfam_country_corr <- plotPCA(vst_fam_remCOUNTRY, "Country")
+p2_EZfam_treat_corr <- plotPCA(vst_fam_remCOUNTRY, "Treatment")
+p3_EZfam_time_corr <- plotPCA(vst_fam_remCOUNTRY, "Time")
+p4_EZfam_farm_corr <- plotPCA(vst_fam_remCOUNTRY, "Farm")
+
+plot_grid(p1_EZfam_country_corr, p2_EZfam_treat_corr, p3_EZfam_time_corr, p4_EZfam_farm_corr)
+
+#permanova
+vst_fam_remCOUNTRY_df <- as.data.frame(assay(vst_fam_remCOUNTRY))
+vst_fam_remCOUNTRY_df <- t(vst_fam_remCOUNTRY_df)
+
+set.seed(4364)
+adonis(vst_fam_remCOUNTRY_df ~ Treatment, 
+                     data=sampledata, permutations=999, strata = sampledata$Farm) 
+
+```
+***No drought effect***
+
+# Counts EZ IDs
+## filterByExpr
+
+```{r filter counts EZ IDs, warning=FALSE, message=FALSE}
+
+gene_counts_ID <- read.table("../../seq_data/enzID_counts.tsv", header = T, row.names = 1, check.names = F)
+dim(gene_counts_ID)
+sum(gene_counts_ID)
+
+EZ_ID_dgelist <- DGEList(gene_counts_ID)
+EZ_ID_dgelist <- calcNormFactors(EZ_ID_dgelist,method=c("TMM")) #trimmed mean of M-values
+
+table(rowSums(EZ_ID_dgelist$counts==0)==40)
+
+#automatic way to filter genes
+keep.exprs <- filterByExpr(EZ_ID_dgelist)
+
+#number of genes left after filtering
+EZ_ID_dgelist <- EZ_ID_dgelist[keep.exprs,, keep.lib.sizes=FALSE]
+dim(EZ_ID_dgelist)
+
+sum(EZ_ID_dgelist$counts) 
+282917374/307311474  
+
+#write.table(EZ_ID_dgelist$counts, "../../seq_data/enzID_filt_counts.tsv",row.names = TRUE, col.names = TRUE, sep = "\t" )
+
+``` 
+
+## order
+
+```{r order ID level, message=FALSE, warning=FALSE, echo=FALSE}
+
+EZ_ID_dgelist <- read.table("../../seq_data/enzID_filt_counts.tsv", header = T, row.names = 1, check.names = F)
+
+all(colnames(EZ_ID_dgelist) == rownames(sampledata))
+sort(colnames(EZ_ID_dgelist))
+sort(rownames(sampledata))
+
+geneID_dgelist_ord <- match(rownames(sampledata), colnames(EZ_ID_dgelist))
+geneID_ord <- EZ_ID_dgelist[,geneID_dgelist_ord]
+all(rownames(sampledata) == colnames(geneID_ord))
+
+EZ_ID_dgelist <- geneID_ord
+
+```
+
+## VST EZ ID
+
+```{r VST EZ ID, message=FALSE, warning=FALSE}
+
+set.seed(6359)
+dd_ID <- DESeqDataSetFromMatrix(countData=EZ_ID_dgelist,colData=sampledata,design=~Country+Treatment+Time)
+
+vst_ID <- varianceStabilizingTransformation(dd_ID)
+
+p1_ID_country <- plotPCA(vst_ID, "Country")
+p2_ID_treat <- plotPCA(vst_ID, "Treatment")
+p3_ID_time <- plotPCA(vst_ID, "Time")
+p4_ID_farm <- plotPCA(vst_ID, "Farm")
+plot_grid(p1_ID_country, p2_ID_treat, p3_ID_time, p4_ID_farm)
+
+```
+
+## Permanova
+
+```{r permanova ID, message=FALSE, warning=FALSE}
+
+vst_ID_counts <- assay(vst_ID)
+vst_ID_counts <- t(vst_ID_counts)
+
+set.seed(5392)
+perm1_ID <- adonis(vst_ID_counts ~Country+Treatment+Time+Country:Treatment+Country:Time+Treatment:Time+Country:Treatment:Time, 
+                   data=sampledata, permutations=999, strata = sampledata$Farm)
+perm1_ID
+
+```
+***Country and drought effect***
+
+## PCA VST IDs
+
+```{r PCA VST ID, warning=FALSE, message=FALSE}
+
+ntop <- 500
+rv <- rowVars(assay(vst_ID))
+select <- order(rv, decreasing = TRUE)[seq_len(min(ntop, length(rv)))]
+mat <- t( assay(vst_ID)[select, ] )
+
+pca<-prcomp(mat)
+#pca <- as.data.frame(pca$x)
+#pca$PC1
+
+eigs <- pca$sdev^2
+eigs[1] / sum(eigs)
+eigs[2] / sum(eigs)
+
+PCA_vst_ID <- data.frame(pca$x, Country=sampledata$Country, Farm=sampledata$Farm, Time=sampledata$Time, Treat=sampledata$Treatment, Cou_Treat=sampledata$Cou_Treat)
+
+PCA_vst_ID$Cou_Treat <- factor(PCA_vst_ID$Cou_Treat, levels = c("ES_C", "ES_D", "SE_C", "SE_D"), labels = c("Spain + C", "Spain + D", "Sweden + C", "Sweden + D"))
+PCA_vst_ID$Country <- factor(PCA_vst_ID$Country, levels = c("ES", "SE"), labels = c("Spain", "Sweden"))
+
+ggplot() + geom_point(data=PCA_vst_ID, mapping=aes(x=PC1, y=PC2, color = Country, shape=Treat), size = 10,alpha=0.8) +
+    geom_vline(xintercept = 0, linetype=2) +
+    geom_hline(yintercept = 0, linetype=2) +
+    theme_bw() +
+    theme(panel.grid.major = element_blank(), 
+          panel.grid.minor = element_blank()) + xlab("PC1 (31% variance)") +  ylab("PC2 (14% variance)") +
+    scale_color_manual(values=c("#79402E","#46acc8")) + labs(colour = "Country", shape= "Drought treatment") + guides(color = guide_legend(order = 1),
+         shape = guide_legend(order = 2)) +
+  theme(axis.text = element_text(size = 12)) + 
+    theme(axis.title = element_text(size = 12)) +
+    theme(legend.title = element_text(size = 12)) + 
+    theme(legend.text = element_text(size = 12))
+
+#ggsave("../figures/PCA_overall_enzID.jpeg", width = 20, height = 15, units = "cm")
+
+```
+
+# Separate countries
+## Sweden
+
+```{r SE, message=FALSE, warning=FALSE}
+
+se_meta <- sampledata %>%
+  filter(Country == "SE")
+se_meta$Farm <- as.factor(se_meta$Farm)
+
+se_ID <- EZ_ID_dgelist[,colnames(EZ_ID_dgelist) %in% rownames(se_meta)]
+
+set.seed(6359)
+se_dd <- DESeqDataSetFromMatrix(countData = se_ID,
+                              colData = se_meta[match(colnames(se_ID), rownames(se_meta)), ],
+                              design= ~  Treatment + Farm + Time)
+
+se_vst <- varianceStabilizingTransformation(se_dd)
+
+p1_SE_farm <- plotPCA(se_vst, "Farm")
+p2_SE_treat <- plotPCA(se_vst, "Treatment")
+p3_SE_time <- plotPCA(se_vst, "Time")
+plot_grid(p1_SE_farm, p2_SE_treat, p3_SE_time)
+
+#PERMANOVA
+se_vst_counts <- assay(se_vst)
+se_vst_counts <- t(se_vst_counts)
+set.seed(4364)
+adonis(se_vst_counts~ Treatment + Time, 
+       data=se_meta,  strata=se_meta$Farm, permutations=999)
+
+```
+***Differences between farm sites***
+***Effect of time***
+
+### plot PCA
+
+```{r plot PCA SE}
+
+ntop <- 500
+rv <- rowVars(assay(se_vst))
+select <- order(rv, decreasing = TRUE)[seq_len(min(ntop, length(rv)))]
+mat <- t( assay(se_vst)[select, ] )
+
+pca_sweden<-prcomp(mat)
+
+eigs <- pca_sweden$sdev^2
+eigs[1] / sum(eigs)
+eigs[2] / sum(eigs)
+
+PCA_SE_ID <- data.frame(pca_sweden$x, Farm=se_meta$Farm, Time=se_meta$Time, Treat=se_meta$Treatment, Cou_Treat=se_meta$Cou_Treat)
+
+#drought-time
+ggplot() + geom_point(data=PCA_SE_ID, mapping=aes(x=PC1, y=PC2, color = Treat, shape=Time), size = 10,alpha=0.8) +
+geom_vline(xintercept = 0, linetype=2) +
+geom_hline(yintercept = 0, linetype=2) +
+theme_bw() +
+theme(panel.grid.major = element_blank(),
+panel.grid.minor = element_blank()) +
+scale_color_manual(values=c("#8f8f8f","#000000")) + labs(colour = "Drought", shape= "Sampling time") + guides(color = guide_legend(order = 1),
+shape = guide_legend(order = 2)) +
+theme(axis.text = element_text(size = 12)) +
+theme(axis.title = element_text(size = 12)) +
+theme(legend.title = element_text(size = 12)) +
+theme(legend.text = element_text(size = 12))
+
+#farm-drought
+ggplot(PCA_SE_ID, aes(x=PC1, y=PC2, color = Farm, shape=Treat)) + geom_text_repel(aes(label=Time),max.overlaps = Inf, point.size = 8, segment.color=NA, show.legend = F,size=6) +
+  geom_point(aes(fill = Farm, shape = Treat),size = 10,alpha=0.8) + scale_shape_manual(values = c(24,25)) +
+  scale_fill_manual(values=wes_palette(n=5, name="Cavalcanti1")) +
+  scale_color_manual(values=wes_palette(n=5, name="Cavalcanti1")) +
+    geom_vline(xintercept = 0, linetype=2) +
+    geom_hline(yintercept = 0, linetype=2) +
+    theme_bw() +
+    theme(panel.grid.major = element_blank(), 
+          panel.grid.minor = element_blank()) +
+    labs(fill = "Farm", shape= "Drought", color="Farm") + 
+  xlab("PC1 (36% variance)") + ylab("PC2 (19% variance)") +
+  theme(axis.text = element_text(size = 12)) + 
+    theme(axis.title = element_text(size = 12)) +
+    theme(legend.title = element_text(size = 12)) + 
+    theme(legend.text = element_text(size = 12))
+  
+#ggsave("../figures/PCA_SE_enzID.jpeg", width = 20, height = 15, units = "cm")
+
+```
+
+### batch SE
++ correction on farms
+
+```{r SE batch correction, message=F, warning=F}
+
+se_vst_remFP <- se_vst
+assay(se_vst_remFP) <- limma::removeBatchEffect(assay(se_vst_remFP), se_vst_remFP$Farm)
+
+p1_SE_FP_corr <- plotPCA(se_vst_remFP, "Farm")
+p2_SE_treat_corr <- plotPCA(se_vst_remFP, "Treatment")
+plot_grid(p1_SE_FP_corr, p2_SE_treat_corr)
+
+#PERMANOVA 
+se_vst_remFP_df <- as.data.frame(assay(se_vst_remFP))
+se_vst_remFP_df <- t(se_vst_remFP_df)
+
+set.seed(4364)
+adonis(se_vst_remFP_df ~ Treatment, 
+                     data=se_meta, permutations=999)
+
+```
+***No drought effect***
+
+## Spain
+
+```{r ES, message=FALSE, warning=FALSE}
+
+es_meta <- sampledata %>%
+  filter(Country == "ES")
+es_meta$Farm <- as.factor(es_meta$Farm)
+
+es_ID <- EZ_ID_dgelist[,colnames(EZ_ID_dgelist) %in% rownames(es_meta)]
+
+set.seed(6359)
+es_dd <- DESeqDataSetFromMatrix(countData = es_ID,
+                              colData = es_meta[match(colnames(es_ID), rownames(es_meta)), ],
+                              design= ~  Treatment + Farm)
+
+es_vst <- varianceStabilizingTransformation(es_dd)
+
+p1_ES_farm <- plotPCA(es_vst, "Farm")
+p2_ES_treat <- plotPCA(es_vst, "Treatment")
+p3_ES_time <- plotPCA(es_vst, "Time")
+plot_grid(p1_ES_farm, p2_ES_treat, p3_ES_time)
+
+#PERMANOVA
+es_vst_counts <- assay(es_vst)
+es_vst_counts <- t(es_vst_counts)
+set.seed(4364)
+adonis(es_vst_counts~ Treatment + Time, 
+       data=es_meta, strata=es_meta$Farm, permutations=999)
+
+```
+***Drought effect, minor time effect***
+***Differences between farms***
+
+### plot PCA
+
+```{r plot PCA ES}
+
+ntop <- 500
+rv <- rowVars(assay(es_vst))
+select <- order(rv, decreasing = TRUE)[seq_len(min(ntop, length(rv)))]
+mat <- t( assay(es_vst)[select, ] )
+
+pca_spain<-prcomp(mat)
+
+eigs <- pca_spain$sdev^2
+eigs[1] / sum(eigs)
+eigs[2] / sum(eigs)
+
+PCA_ES_ID <- data.frame(pca_spain$x, Farm=es_meta$Farm, Time=es_meta$Time, Treat=es_meta$Treatment, Cou_Treat=es_meta$Cou_Treat)
+
+#drought-time
+ggplot() + geom_point(data=PCA_ES_ID, mapping=aes(x=PC1, y=PC2, color = Treat, shape=Time), size = 10,alpha=0.8) +
+geom_vline(xintercept = 0, linetype=2) +
+geom_hline(yintercept = 0, linetype=2) +
+theme_bw() +
+theme(panel.grid.major = element_blank(),
+panel.grid.minor = element_blank()) +
+scale_color_manual(values=c("#8f8f8f","#000000")) + labs(colour = "Drought", shape= "Sampling time") + guides(color = guide_legend(order = 1),
+shape = guide_legend(order = 2)) +
+theme(axis.text = element_text(size = 12)) +
+theme(axis.title = element_text(size = 12)) +
+theme(legend.title = element_text(size = 12)) +
+theme(legend.text = element_text(size = 12))
+
+#farm-drought
+ggplot(PCA_ES_ID, aes(x=PC1, y=PC2, color = Farm, shape=Treat)) + geom_text_repel(aes(label=Time),max.overlaps = Inf, point.size = 8, segment.color=NA, show.legend = F,size=6) +
+  geom_point(aes(fill = Farm, shape = Treat),size = 10,alpha=0.8) + scale_shape_manual(values = c(24,25)) +
+  scale_fill_manual(values=wes_palette(n=5, name="Cavalcanti1")) +
+  scale_color_manual(values=wes_palette(n=5, name="Cavalcanti1")) +
+    geom_vline(xintercept = 0, linetype=2) +
+    geom_hline(yintercept = 0, linetype=2) +
+    theme_bw() +
+    theme(panel.grid.major = element_blank(), 
+          panel.grid.minor = element_blank()) +
+    labs(fill = "Farm", shape= "Drought", color="Farm") + 
+  xlab("PC1 (26% variance)") + ylab("PC2 (19% variance)")
+  theme(axis.text = element_text(size = 12)) + 
+    theme(axis.title = element_text(size = 12)) +
+    theme(legend.title = element_text(size = 12)) + 
+    theme(legend.text = element_text(size = 12))
+  
+#ggsave("../figures/PCA_ES_enzID.jpeg", width = 20, height = 15, units = "cm")
+
+```
+
+```{r info}
+sessionInfo()
+```
