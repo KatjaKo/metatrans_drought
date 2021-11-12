@@ -11,6 +11,7 @@ knitr::opts_chunk$set(echo = TRUE)
 ```{r packages, include=FALSE}
 
 library(DESeq2)
+library(tidyverse)
 
 ```
 
@@ -150,7 +151,7 @@ write.table(res_signif,"../results/DE_all_ESvsSE_D.tsv",row.names = TRUE, col.na
 
 ```
 
-## the different response in countries (interaction)
+## response across countries (interaction)
 
 ```{r all interaction, message=FALSE, warning=FALSE}
 
@@ -170,5 +171,102 @@ res_signif <- dplyr::filter(as.data.frame(res),padj<0.05)
 # sort
 res_signif <- res_signif[order(abs(res_signif$log2FoldChange),decreasing = T),] 
 write.table(res_signif,"../results/DE_all_interaction.tsv",row.names = TRUE, col.names = TRUE, sep = "\t")
+
+```
+
+## separate DE
++ based on raw counts
++ for each country separately
++ treatment (2 levels)
+
+### Spain
+
+```{r diffExp Spain, message=FALSE, warning=FALSE}
+
+es_meta <- sampledata %>%
+  filter(Country == "ES")
+es_meta$Farm <- factor(es_meta$Farm)
+
+counts_ES <- gene_counts_ID[-c(11:20,31:40)]
+
+set.seed(6282)
+de_spain <- DESeqDataSetFromMatrix(countData=ceiling(counts_ES),colData=es_meta,design=~Treatment)
+
+design(de_spain) <- ~ Treatment 
+set.seed(2741)
+de_spain <- DESeq(de_spain) 
+resultsNames(de_spain)
+
+saveRDS(de_spain, file = "../../seq_data/de_ES_model.rds")
+
+```
+
+```{r}
+
+d_spain <- readRDS("../../seq_data/de_ES_model.rds")
+
+res = results(d_spain, contrast=c("Treatment","D","C"))
+res$padj[is.na(res$padj)] <- 1
+summary(res)
+
+# all genes
+nrow(as.data.frame(res))
+# only genes with padj <0.05
+nrow(dplyr::filter(as.data.frame(res),padj<0.05))
+nrow(dplyr::filter(as.data.frame(res),padj<0.05,(log2FoldChange)<0))
+nrow(dplyr::filter(as.data.frame(res),padj<0.05,(log2FoldChange)>0))
+
+res_signif <- dplyr::filter(as.data.frame(res),padj<0.05)
+nrow(res_signif)
+
+# sort
+res_signif <- res_signif[order(abs(res_signif$log2FoldChange),decreasing = T),] 
+write.csv(res_signif,"../results/DE_ES_drought.csv",row.names=T)
+
+```
+
+### Sweden
+
+```{r diffExp Sweden, message=FALSE, warning=FALSE}
+
+se_meta <- sampledata %>%
+  filter(Country == "SE")
+se_meta$Farm <- factor(se_meta$Farm)
+
+counts_SE <- gene_counts_ID[-c(1:10,21:30)]
+
+set.seed(6282)
+de_sweden <- DESeqDataSetFromMatrix(countData=ceiling(counts_SE),colData=se_meta,design=~Treatment)
+
+design(de_sweden) <- ~ Treatment
+set.seed(2741)
+de_sweden <- DESeq(de_sweden) 
+resultsNames(de_sweden)
+
+saveRDS(de_sweden, file = "../../seq_data/de_SE_model.rds")
+
+```
+
+```{r}
+
+d_sweden <- readRDS("../../seq_data/de_SE_model.rds")
+
+res = results(d_sweden, contrast=c("Treatment","D","C"))
+res$padj[is.na(res$padj)] <- 1
+summary(res)
+
+# all genes
+nrow(as.data.frame(res))
+# only genes with padj <0.05
+nrow(dplyr::filter(as.data.frame(res),padj<0.05))
+nrow(dplyr::filter(as.data.frame(res),padj<0.05,(log2FoldChange)<0))
+nrow(dplyr::filter(as.data.frame(res),padj<0.05,(log2FoldChange)>0))
+
+res_signif <- dplyr::filter(as.data.frame(res),padj<0.05)
+nrow(res_signif)
+
+# sort
+res_signif <- res_signif[order(abs(res_signif$log2FoldChange),decreasing = T),] 
+write.csv(res_signif,"../results/DE_SE_drought.csv",row.names=T)
 
 ```
