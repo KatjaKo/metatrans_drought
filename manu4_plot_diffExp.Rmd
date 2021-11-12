@@ -1,0 +1,133 @@
+---
+title: "manu4_plot_diffExp"
+author: "Katja K"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r packages, include=FALSE}
+
+library(ggplot2)
+library(ggpubr)
+library(dplyr)
+library(tidyverse)
+
+```
+
+# Data 
+
+```{r import, message=FALSE, warning=FALSE}
+
+# Effect of drought in Spain
+de_d_es <- read.csv("../results/DE_all_D_ES.tsv", sep = "\t", header = T, row.names = 1)
+
+# Effect of drought in Sweden
+de_d_se <- read.csv("../results/DE_all_D_SE.tsv", sep = "\t", header = T, row.names = 1)
+
+# Effect of drought and different response in countries
+de_int <- read.csv("../results/DE_all_interaction.tsv", sep = "\t", header = T, row.names = 1)
+
+# Effect of country in control
+de_cont_all <- read.csv("../results/DE_all_ESvsSE_C.tsv", sep = "\t", header = T, row.names = 1)
+
+# Effect of country in drought
+de_drought_all <- read.csv("../results/DE_all_ESvsSE_D.tsv", sep = "\t", header = T, row.names = 1)
+
+```
+
+# Overall DE
+
+```{r create file, message=FALSE, warning=FALSE}
+
+#drought Spain
+drought_es <- de_d_es %>% 
+  mutate(abs_fc = abs(log2FoldChange))%>%
+  mutate(condition = ifelse(log2FoldChange > 0, "Drought", "Control")) %>%
+  mutate(direction = ifelse(log2FoldChange > 0, "Positive", "Negative")) 
+
+ovr_plot_es <- drought_es %>%
+  group_by(condition, direction) %>%
+  summarise(nsig= n(), sum_mean = sum(baseMean), sum_FC = sum(log2FoldChange))
+ovr_plot_es$test <- "Spain"
+
+#drought Sweden
+drought_se <- de_d_se %>% 
+  mutate(abs_fc = abs(log2FoldChange))%>%
+  mutate(condition = ifelse(log2FoldChange > 0, "Drought", "Control")) %>%
+  mutate(direction = ifelse(log2FoldChange > 0, "Positive", "Negative")) 
+
+ovr_plot_se <- drought_se %>%
+  group_by(condition, direction) %>%
+  summarise(nsig= n(), sum_mean = sum(baseMean), sum_FC = sum(log2FoldChange))
+ovr_plot_se$test <- "Sweden"
+
+#interaction 
+int_all <- de_int %>% 
+  mutate(abs_fc = abs(log2FoldChange))%>%
+  mutate(condition = ifelse(log2FoldChange > 0, "Drought", "Control")) %>%
+  mutate(direction = ifelse(log2FoldChange > 0, "Positive", "Negative"))
+
+ovr_plot_int <- int_all %>%
+  group_by(condition, direction) %>%
+  summarise(nsig= n(), sum_mean = sum(baseMean), sum_FC = sum(log2FoldChange))
+ovr_plot_int$test <- "interaction"
+
+#control all
+cont_all <- de_cont_all %>% 
+  mutate(abs_fc = abs(log2FoldChange))%>%
+  mutate(condition = ifelse(log2FoldChange > 0, "Spain", "Sweden")) %>%
+  mutate(direction = ifelse(log2FoldChange > 0, "Positive", "Negative"))
+
+ovr_plot_cont <- cont_all %>%
+  group_by(condition, direction) %>%
+  summarise(nsig= n(), sum_mean = sum(baseMean), sum_FC = sum(log2FoldChange))
+ovr_plot_cont$test <- "Control-All"
+
+#drought all
+drought_all <- de_drought_all %>% 
+  mutate(abs_fc = abs(log2FoldChange))%>%
+  mutate(condition = ifelse(log2FoldChange > 0, "Spain", "Sweden")) %>%
+  mutate(direction = ifelse(log2FoldChange > 0, "Positive", "Negative"))
+
+ovr_plot_drought <- drought_all %>%
+  group_by(condition, direction) %>%
+  summarise(nsig= n(), sum_mean = sum(baseMean), sum_FC = sum(log2FoldChange))
+ovr_plot_drought$test <- "Drought-All"
+
+ovr_nsig_data <- rbind(ovr_plot_es, ovr_plot_se, ovr_plot_int, ovr_plot_cont, ovr_plot_drought)
+
+save.image("../../seq_data/diffExp.RData")
+
+```
+
+## plot
+
+```{r plot, message=FALSE, warning=FALSE}
+
+load("../../seq_data/diffExp.RData")
+
+ovr_nsig_data <- ovr_nsig_data %>%
+  mutate(Main_test = ifelse(any(grepl("Control-", test)), "Country", "Treatment"))
+
+ovr_nsig_data$condition <- factor(ovr_nsig_data$condition, levels = c("Spain", "Sweden", "Control", "Drought"))
+ovr_nsig_data$test <- factor(ovr_nsig_data$test, levels = c("Spain", "Sweden",  "Control-All", "Drought-All", "interaction"), labels = c("Spain", "Sweden", "Control", "Drought", "Across countries"))
+ovr_nsig_data$Main_test <- factor(ovr_nsig_data$Main_test, levels = c("Country", "Treatment"), labels = c("Country effect", "Treatment effect"))
+  
+ggplot(data = ovr_nsig_data) +
+  geom_bar(aes(x = test, y = log10(nsig), fill = condition),
+           position = "dodge",stat = "identity") +
+  geom_text(aes(test, log10(nsig), label=nsig, group = condition),
+            vjust = -0.25, size=4, position = position_dodge(width = .9)) +
+  facet_wrap(~Main_test, scales = "free_x") +
+  scale_fill_manual(values = c("#79402E","#46acc8", "#8f8f8f","#000000")) +
+  ylab("Number of DE transcripts [log10]") +
+  theme_pubclean(base_size = 12) +
+  theme(axis.text.y = element_blank(), axis.ticks.y = element_blank(), axis.title.x = element_blank()) + labs(fill = "")
+
+ggsave("../figures/DE_overall.jpg", width = 20, height = 15, units = "cm")
+
+```
+
