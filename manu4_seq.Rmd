@@ -32,12 +32,12 @@ knit_hooks$set(output = function(x, options) {
 
 library(ggplot2)
 library(vegan)
-library("matR")
 library(DESeq2)
 library(edgeR)
 library(cowplot)
 library(ggrepel)
 library(dplyr)
+library(wesanderson)
 
 ```
 
@@ -75,15 +75,11 @@ dim(EZfam_dgelist)
 sum(EZfam_dgelist$counts) 
 307301666/307311474  
 
-#write.table(EZfam_dgelist$counts, "../../seq_data/EZfam_filt_counts.tsv",row.names = TRUE, col.names = TRUE, sep = "\t" )
-
 ``` 
 
 ## order
 
 ```{r order EZfam, message=FALSE, warning=FALSE, echo=FALSE}
-
-EZfam_dgelist <- read.table("../../seq_data/EZfam_filt_counts.tsv", header = T, row.names = 1, check.names = F)
 
 all(colnames(EZfam_dgelist) == rownames(sampledata))
 sort(colnames(EZfam_dgelist))
@@ -95,11 +91,15 @@ all(rownames(sampledata) == colnames(EZfam_ord))
 
 EZfam_dgelist <- EZfam_ord 
 
+write.table(EZfam_dgelist$counts, "../../seq_data/EZfam_filt_counts.tsv",row.names = TRUE, col.names = TRUE, sep = "\t" )
+
 ```
 
 ## VST EZfam
 
 ```{r VST EZfam, message=FALSE, warning=FALSE}
+
+EZfam_dgelist <- read.table("../../seq_data/EZfam_filt_counts.tsv", header = T, row.names = 1, check.names = F)
 
 set.seed(6253)
 dd_fam <- DESeqDataSetFromMatrix(countData=EZfam_dgelist,colData=sampledata,design=~Country+Treatment+Time)
@@ -206,15 +206,11 @@ dim(EZ_ID_dgelist)
 sum(EZ_ID_dgelist$counts) 
 282917374/307311474  
 
-#write.table(EZ_ID_dgelist$counts, "../../seq_data/enzID_filt_counts.tsv",row.names = TRUE, col.names = TRUE, sep = "\t" )
-
 ``` 
 
 ## order
 
 ```{r order ID level, message=FALSE, warning=FALSE, echo=FALSE}
-
-EZ_ID_dgelist <- read.table("../../seq_data/enzID_filt_counts.tsv", header = T, row.names = 1, check.names = F)
 
 all(colnames(EZ_ID_dgelist) == rownames(sampledata))
 sort(colnames(EZ_ID_dgelist))
@@ -226,11 +222,15 @@ all(rownames(sampledata) == colnames(geneID_ord))
 
 EZ_ID_dgelist <- geneID_ord
 
+write.table(EZ_ID_dgelist$counts, "../../seq_data/enzID_filt_counts.tsv",row.names = TRUE, col.names = TRUE, sep = "\t" )
+
 ```
 
 ## VST EZ ID
 
 ```{r VST EZ ID, message=FALSE, warning=FALSE}
+
+EZ_ID_dgelist <- read.table("../../seq_data/enzID_filt_counts.tsv", header = T, row.names = 1, check.names = F)
 
 set.seed(6359)
 dd_ID <- DESeqDataSetFromMatrix(countData=EZ_ID_dgelist,colData=sampledata,design=~Country+Treatment+Time)
@@ -295,7 +295,27 @@ ggplot() + geom_point(data=PCA_vst_ID, mapping=aes(x=PC1, y=PC2, color = Country
     theme(legend.title = element_text(size = 12)) + 
     theme(legend.text = element_text(size = 12))
 
-#ggsave("../figures/PCA_overall_enzID.jpeg", width = 20, height = 15, units = "cm")
+ggsave("../figures/PCA_overall_enzID_batch.jpeg", width = 20, height = 15, units = "cm")
+
+```
+
+# Only T4
+
+```{r}
+
+EZ_ID_dgelist_T4 <- EZ_ID_dgelist[,21:40]
+sampledata_T4 <- sampledata %>%
+  filter(Time == "T4")
+
+set.seed(6359)
+dd_ID_T4 <- DESeqDataSetFromMatrix(countData=EZ_ID_dgelist_T4,colData=sampledata_T4,design=~Country+Treatment)
+
+vst_ID_T4 <- varianceStabilizingTransformation(dd_ID_T4)
+
+p1_ID_country_T4 <- plotPCA(vst_ID_T4, "Country")
+p2_ID_treat_T4 <- plotPCA(vst_ID_T4, "Treatment")
+p4_ID_farm_T4 <- plotPCA(vst_ID_T4, "Farm")
+plot_grid(p1_ID_country_T4, p2_ID_treat_T4, p4_ID_farm_T4)
 
 ```
 
@@ -408,6 +428,56 @@ adonis(se_vst_remFP_df ~ Treatment,
 ```
 ***No drought effect***
 
+### plot batch SE
+
+```{r SE batch plot}
+
+ntop <- 500
+rv <- rowVars(assay(se_vst_remFP))
+select <- order(rv, decreasing = TRUE)[seq_len(min(ntop, length(rv)))]
+mat <- t( assay(se_vst_remFP)[select, ] )
+
+pca_sweden_batch<-prcomp(mat)
+
+eigs <- pca_sweden_batch$sdev^2
+eigs[1] / sum(eigs)
+eigs[2] / sum(eigs)
+
+PCA_SE_ID_batch <- data.frame(pca_sweden_batch$x, Farm=se_meta$Farm, Time=se_meta$Time, Treat=se_meta$Treatment, Cou_Treat=se_meta$Cou_Treat)
+
+#drought-time
+ggplot() + geom_point(data=PCA_SE_ID_batch, mapping=aes(x=PC1, y=PC2, color = Treat, shape=Time), size = 10,alpha=0.8) +
+geom_vline(xintercept = 0, linetype=2) +
+geom_hline(yintercept = 0, linetype=2) +
+theme_bw() +
+theme(panel.grid.major = element_blank(),
+panel.grid.minor = element_blank()) +
+scale_color_manual(values=c("#8f8f8f","#000000")) + labs(colour = "Drought", shape= "Sampling time") + guides(color = guide_legend(order = 1),
+shape = guide_legend(order = 2)) +
+theme(axis.text = element_text(size = 12)) +
+theme(axis.title = element_text(size = 12)) +
+theme(legend.title = element_text(size = 12)) +
+theme(legend.text = element_text(size = 12))
+
+#farm-drought
+ggplot(PCA_SE_ID_batch, aes(x=PC1, y=PC2, color = Farm, shape=Treat)) + geom_text_repel(aes(label=Time),max.overlaps = Inf, point.size = 8, segment.color=NA, show.legend = F,size=6) +
+  geom_point(aes(fill = Farm, shape = Treat),size = 10,alpha=0.8) + scale_shape_manual(values = c(24,25)) +
+  scale_fill_manual(values=wes_palette(n=5, name="Cavalcanti1")) +
+  scale_color_manual(values=wes_palette(n=5, name="Cavalcanti1")) +
+    geom_vline(xintercept = 0, linetype=2) +
+    geom_hline(yintercept = 0, linetype=2) +
+    theme_bw() +
+    theme(panel.grid.major = element_blank(), 
+          panel.grid.minor = element_blank()) +
+    labs(fill = "Farm", shape= "Drought", color="Farm") + 
+  xlab("PC1 (36% variance)") + ylab("PC2 (19% variance)") +
+  theme(axis.text = element_text(size = 12)) + 
+    theme(axis.title = element_text(size = 12)) +
+    theme(legend.title = element_text(size = 12)) + 
+    theme(legend.text = element_text(size = 12))
+
+```
+
 ## Spain
 
 ```{r ES, message=FALSE, warning=FALSE}
@@ -483,7 +553,7 @@ ggplot(PCA_ES_ID, aes(x=PC1, y=PC2, color = Farm, shape=Treat)) + geom_text_repe
     theme(panel.grid.major = element_blank(), 
           panel.grid.minor = element_blank()) +
     labs(fill = "Farm", shape= "Drought", color="Farm") + 
-  xlab("PC1 (26% variance)") + ylab("PC2 (19% variance)")
+  xlab("PC1 (26% variance)") + ylab("PC2 (19% variance)") +
   theme(axis.text = element_text(size = 12)) + 
     theme(axis.title = element_text(size = 12)) +
     theme(legend.title = element_text(size = 12)) + 
@@ -492,6 +562,83 @@ ggplot(PCA_ES_ID, aes(x=PC1, y=PC2, color = Farm, shape=Treat)) + geom_text_repe
 #ggsave("../figures/PCA_ES_enzID.jpeg", width = 20, height = 15, units = "cm")
 
 ```
+
+### batch ES
++ correction on farms
+
+```{r ES batch correction, message=F, warning=F}
+
+es_vst_remFP <- es_vst
+assay(es_vst_remFP) <- limma::removeBatchEffect(assay(es_vst_remFP), es_vst_remFP$Farm)
+
+p1_ES_FP_corr <- plotPCA(es_vst_remFP, "Farm")
+p2_ES_treat_corr <- plotPCA(es_vst_remFP, "Treatment")
+plot_grid(p1_ES_FP_corr, p2_ES_treat_corr)
+
+#PERMANOVA 
+es_vst_remFP_df <- as.data.frame(assay(es_vst_remFP))
+es_vst_remFP_df <- t(es_vst_remFP_df)
+
+set.seed(4364)
+adonis(es_vst_remFP_df ~ Treatment, 
+                     data=es_meta, permutations=999)
+
+```
+***Drought effect***
+
+### plot batch ES
+
+```{r ES batch plot PCA ES}
+
+ntop <- 500
+rv <- rowVars(assay(es_vst_remFP))
+select <- order(rv, decreasing = TRUE)[seq_len(min(ntop, length(rv)))]
+mat <- t( assay(es_vst_remFP)[select, ] )
+
+pca_spain_batch<-prcomp(mat)
+
+eigs <- pca_spain_batch$sdev^2
+eigs[1] / sum(eigs)
+eigs[2] / sum(eigs)
+
+PCA_ES_ID_batch <- data.frame(pca_spain_batch$x, Farm=es_meta$Farm, Time=es_meta$Time, Treat=es_meta$Treatment, Cou_Treat=es_meta$Cou_Treat)
+
+#drought-time
+ggplot() + geom_point(data=PCA_ES_ID_batch, mapping=aes(x=PC1, y=PC2, color = Treat, shape=Time), size = 10,alpha=0.8) +
+geom_vline(xintercept = 0, linetype=2) +
+geom_hline(yintercept = 0, linetype=2) +
+theme_bw() +
+theme(panel.grid.major = element_blank(),
+panel.grid.minor = element_blank()) +
+scale_color_manual(values=c("#8f8f8f","#000000")) + labs(colour = "Drought", shape= "Sampling time") + guides(color = guide_legend(order = 1),
+shape = guide_legend(order = 2)) +
+theme(axis.text = element_text(size = 12)) +
+theme(axis.title = element_text(size = 12)) +
+theme(legend.title = element_text(size = 12)) +
+theme(legend.text = element_text(size = 12))
+
+#farm-drought
+ggplot(PCA_ES_ID_batch, aes(x=PC1, y=PC2, color = Farm, shape=Treat)) + geom_text_repel(aes(label=Time),max.overlaps = Inf, point.size = 8, segment.color=NA, show.legend = F,size=6) +
+  geom_point(aes(fill = Farm, shape = Treat),size = 10,alpha=0.8) + scale_shape_manual(values = c(24,25)) +
+  scale_fill_manual(values=wes_palette(n=5, name="Cavalcanti1")) +
+  scale_color_manual(values=wes_palette(n=5, name="Cavalcanti1")) +
+    geom_vline(xintercept = 0, linetype=2) +
+    geom_hline(yintercept = 0, linetype=2) +
+    theme_bw() +
+    theme(panel.grid.major = element_blank(), 
+          panel.grid.minor = element_blank()) +
+    labs(fill = "Farm", shape= "Drought", color="Farm") + 
+  xlab("PC1 (35% variance)") + ylab("PC2 (19% variance)") +
+  theme(axis.text = element_text(size = 12)) + 
+    theme(axis.title = element_text(size = 12)) +
+    theme(legend.title = element_text(size = 12)) + 
+    theme(legend.text = element_text(size = 12))
+  
+ggsave("../figures/PCA_ES_enzID_time_batch.jpeg", width = 20, height = 15, units = "cm")
+
+```
+
+
 
 ```{r info}
 sessionInfo()
