@@ -14,12 +14,16 @@ library(ggplot2)
 library(ggpubr)
 library(dplyr)
 library(tidyverse)
+library(treemapify)
 
 ```
 
 # Data 
 
 ```{r import, message=FALSE, warning=FALSE}
+
+tdb_annot <- read.table("../../seq_data/enzID_cls_fam.map.tsv", sep = "\t", header = F, row.names = 1)
+colnames(tdb_annot) <- c("enz_class", "enz_family")
 
 # Effect of drought in Spain
 de_d_es <- read.csv("../results/DE_all_D_ES.tsv", sep = "\t", header = T, row.names = 1)
@@ -46,7 +50,12 @@ de_drought_all <- read.csv("../results/DE_all_ESvsSE_D.tsv", sep = "\t", header 
 drought_es <- de_d_es %>% 
   mutate(abs_fc = abs(log2FoldChange))%>%
   mutate(condition = ifelse(log2FoldChange > 0, "Drought", "Control")) %>%
-  mutate(direction = ifelse(log2FoldChange > 0, "Positive", "Negative")) 
+  mutate(direction = ifelse(log2FoldChange > 0, "Positive", "Negative")) %>%
+  rownames_to_column("Transcript") %>% 
+  left_join(tdb_annot %>% rownames_to_column("Transcript"), by = "Transcript")
+
+drought_es$enz_class <- factor(drought_es$enz_class)
+drought_es$enz_family <- factor(drought_es$enz_family)
 
 ovr_plot_es <- drought_es %>%
   group_by(condition, direction) %>%
@@ -57,7 +66,9 @@ ovr_plot_es$test <- "Spain"
 drought_se <- de_d_se %>% 
   mutate(abs_fc = abs(log2FoldChange))%>%
   mutate(condition = ifelse(log2FoldChange > 0, "Drought", "Control")) %>%
-  mutate(direction = ifelse(log2FoldChange > 0, "Positive", "Negative")) 
+  mutate(direction = ifelse(log2FoldChange > 0, "Positive", "Negative")) %>%
+  rownames_to_column("Transcript") %>% 
+  left_join(tdb_annot %>% rownames_to_column("Transcript"), by = "Transcript")
 
 ovr_plot_se <- drought_se %>%
   group_by(condition, direction) %>%
@@ -68,7 +79,9 @@ ovr_plot_se$test <- "Sweden"
 int_all <- de_int %>% 
   mutate(abs_fc = abs(log2FoldChange))%>%
   mutate(condition = ifelse(log2FoldChange > 0, "Drought", "Control")) %>%
-  mutate(direction = ifelse(log2FoldChange > 0, "Positive", "Negative"))
+  mutate(direction = ifelse(log2FoldChange > 0, "Positive", "Negative")) %>%
+  rownames_to_column("Transcript") %>% 
+  left_join(tdb_annot %>% rownames_to_column("Transcript"), by = "Transcript")
 
 ovr_plot_int <- int_all %>%
   group_by(condition, direction) %>%
@@ -79,7 +92,9 @@ ovr_plot_int$test <- "interaction"
 cont_all <- de_cont_all %>% 
   mutate(abs_fc = abs(log2FoldChange))%>%
   mutate(condition = ifelse(log2FoldChange > 0, "Spain", "Sweden")) %>%
-  mutate(direction = ifelse(log2FoldChange > 0, "Positive", "Negative"))
+  mutate(direction = ifelse(log2FoldChange > 0, "Positive", "Negative")) %>%
+  rownames_to_column("Transcript") %>% 
+  left_join(tdb_annot %>% rownames_to_column("Transcript"), by = "Transcript")
 
 ovr_plot_cont <- cont_all %>%
   group_by(condition, direction) %>%
@@ -90,7 +105,9 @@ ovr_plot_cont$test <- "Control-All"
 drought_all <- de_drought_all %>% 
   mutate(abs_fc = abs(log2FoldChange))%>%
   mutate(condition = ifelse(log2FoldChange > 0, "Spain", "Sweden")) %>%
-  mutate(direction = ifelse(log2FoldChange > 0, "Positive", "Negative"))
+  mutate(direction = ifelse(log2FoldChange > 0, "Positive", "Negative")) %>%
+  rownames_to_column("Transcript") %>% 
+  left_join(tdb_annot %>% rownames_to_column("Transcript"), by = "Transcript")
 
 ovr_plot_drought <- drought_all %>%
   group_by(condition, direction) %>%
@@ -131,3 +148,66 @@ ggsave("../figures/DE_overall.jpg", width = 20, height = 15, units = "cm")
 
 ```
 
+# Effect of drought in Spain
+
+```{r}
+
+es_all_tdb <- drought_es %>% 
+  filter(condition == "Drought") %>%
+  group_by(enz_class, enz_family) %>%
+  summarise(num_sig= n(), mean_log2FC = mean(abs(log2FoldChange))) %>%
+  filter(!is.na(enz_class)) %>%
+  arrange(desc(num_sig))
+
+ggplot(data = es_all_tdb, aes(fill = mean_log2FC, area = num_sig, label= enz_family, subgroup=enz_class)) +
+  geom_treemap() +
+  geom_treemap_text(colour ="white", place = "centre") +
+  theme_pubclean(base_size = 12) +
+  scale_fill_gradient(low = "#ca8975", high = "#79402E") + labs(fill = "Mean log2 fold-change")
+
+ggsave("../figures/treemap_ES_D.jpeg", width = 20, height = 15, units = "cm")
+
+```
+
+```{r}
+
+drought_es %>% 
+ filter(condition == "Drought") %>%
+ dim()
+ sum(es_all_tdb$num_sig)
+head(es_all_tdb, 10)
+
+```
+***12 transcripts in total that were significantly expressed in drought compared to control. 12 had matches to the exTDB.***
+
+# Effect of drought in Sweden
+
+```{r}
+
+se_all_tdb <- drought_se %>% 
+  filter(condition == "Drought") %>%
+  group_by(enz_class, enz_family) %>%
+  summarise(num_sig= n(), mean_log2FC = mean(abs(log2FoldChange))) %>%
+  filter(!is.na(enz_class)) %>%
+  arrange(desc(num_sig))
+
+ggplot(data = se_all_tdb, aes(fill = mean_log2FC, area = num_sig, label= enz_family, subgroup=enz_class)) +
+  geom_treemap() +
+  geom_treemap_text(colour ="white", place = "centre") +
+  theme_pubclean(base_size = 12) +
+  scale_fill_gradient(low = "#A9CCE3", high = "#46acc8") + labs(fill = "Mean log2 fold-change")
+
+ggsave("../figures/treemap_SE_D.jpeg", width = 20, height = 15, units = "cm")
+
+```
+
+```{r}
+
+drought_se %>% 
+ filter(condition == "Drought") %>%
+ dim()
+ sum(se_all_tdb$num_sig)
+head(se_all_tdb, 10)
+
+```
+***71 transcripts in total that were significantly expressed in drought compared to control. All had matches to the exTDB.***
