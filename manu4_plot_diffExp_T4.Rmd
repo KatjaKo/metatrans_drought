@@ -1,8 +1,10 @@
 ---
-title: "manu4_plot_diffExp"
+title: "manu4_plot_diffExp_T4"
 author: "Katja K"
+date: "24/11/2021"
 output: html_document
 ---
+
 
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = TRUE)
@@ -26,23 +28,23 @@ tdb_annot <- read.table("../../seq_data/enzID_cls_fam.map.tsv", sep = "\t", head
 colnames(tdb_annot) <- c("enz_class", "enz_family")
 
 # Effect of drought in Spain
-de_d_es <- read.csv("../results/DE_all_D_ES.tsv", sep = "\t", header = T, row.names = 1)
+de_d_es <- read.csv("../results/DE_T4_D_ES.tsv", sep = "\t", header = T, row.names = 1)
 
 # Effect of drought in Sweden
-de_d_se <- read.csv("../results/DE_all_D_SE.tsv", sep = "\t", header = T, row.names = 1)
+de_d_se <- read.csv("../results/DE_T4_D_SE.tsv", sep = "\t", header = T, row.names = 1)
 
 # Effect of drought and different response in countries
-de_int <- read.csv("../results/DE_all_interaction.tsv", sep = "\t", header = T, row.names = 1)
+de_int <- read.csv("../results/DE_T4_interaction.tsv", sep = "\t", header = T, row.names = 1)
 
 # Effect of country in control
-de_cont_all <- read.csv("../results/DE_all_ESvsSE_C.tsv", sep = "\t", header = T, row.names = 1)
+de_cont_all <- read.csv("../results/DE_T4_ESvsSE_C.tsv", sep = "\t", header = T, row.names = 1)
 
 # Effect of country in drought
-de_drought_all <- read.csv("../results/DE_all_ESvsSE_D.tsv", sep = "\t", header = T, row.names = 1)
+de_drought_all <- read.csv("../results/DE_T4_ESvsSE_D.tsv", sep = "\t", header = T, row.names = 1)
 
 ```
 
-# Overall DE
+# Overall DE T4
 
 ```{r create file, message=FALSE, warning=FALSE}
 
@@ -116,22 +118,22 @@ ovr_plot_drought$test <- "Drought-All"
 
 ovr_nsig_data <- rbind(ovr_plot_es, ovr_plot_se, ovr_plot_int, ovr_plot_cont, ovr_plot_drought)
 
-save.image("../../seq_data/diffExp.RData")
+save.image("../../seq_data/diffExp_T4.RData")
 
 ```
 
 ## plot
 
-```{r plot, message=FALSE, warning=FALSE}
+```{r plot overall, message=FALSE, warning=FALSE}
 
-load("../../seq_data/diffExp.RData")
+load("../../seq_data/diffExp_T4.RData")
 
 ovr_nsig_data <- ovr_nsig_data %>%
-  mutate(Main_test = ifelse(any(grepl("Control-", test)), "Country", "Treatment"))
+  mutate(Main_test = ifelse(any(grepl("Control-", test)), "Treatment", "Country"))
 
-ovr_nsig_data$condition <- factor(ovr_nsig_data$condition, levels = c("Spain", "Sweden", "Control", "Drought"))
-ovr_nsig_data$test <- factor(ovr_nsig_data$test, levels = c("Spain", "Sweden",  "Control-All", "Drought-All", "interaction"), labels = c("Spain", "Sweden", "Control", "Drought", "Across countries"))
-ovr_nsig_data$Main_test <- factor(ovr_nsig_data$Main_test, levels = c("Country", "Treatment"), labels = c("Country effect", "Treatment effect"))
+ovr_nsig_data$condition <- factor(ovr_nsig_data$condition, levels = c("Control", "Drought", "Spain", "Sweden"))
+ovr_nsig_data$test <- factor(ovr_nsig_data$test, levels = c("Spain", "Sweden", "interaction", "Control-All", "Drought-All"), labels = c("Spain", "Sweden", "Across countries", "Control", "Drought"))
+ovr_nsig_data$Main_test <- factor(ovr_nsig_data$Main_test, levels = c("Country", "Treatment"), labels = c("Treatment effect", "Country effect"))
   
 ggplot(data = ovr_nsig_data) +
   geom_bar(aes(x = test, y = log10(nsig), fill = condition),
@@ -139,12 +141,68 @@ ggplot(data = ovr_nsig_data) +
   geom_text(aes(test, log10(nsig), label=nsig, group = condition),
             vjust = -0.25, size=4, position = position_dodge(width = .9)) +
   facet_wrap(~Main_test, scales = "free_x") +
-  scale_fill_manual(values = c("#79402E","#46acc8", "#8f8f8f","#000000")) +
-  ylab("Number of DE transcripts [log10]") +
+  scale_fill_manual(values = c("#8f8f8f","#000000", "#79402E","#46acc8")) +
+  ylab("Number of DE genes [log10]") +
   theme_pubclean(base_size = 12) +
   theme(axis.text.y = element_blank(), axis.ticks.y = element_blank(), axis.title.x = element_blank()) + labs(fill = "")
 
-ggsave("../figures/DE_overall.jpg", width = 20, height = 15, units = "cm")
+ggsave("../figures/DE_overall_T4.jpg", width = 20, height = 15, units = "cm")
+
+```
+
+## plot treatment
+
+```{r plot treat, message=FALSE, warning=FALSE}
+
+ovr_nsig_data_treat <- rbind(ovr_plot_int, ovr_plot_es, ovr_plot_se)
+
+ovr_nsig_data_treat <- ovr_nsig_data_treat %>%
+  mutate(Main_test = ifelse(any(grepl("Control-", test)), "Treatment", "Treatment"))
+
+ovr_nsig_data_treat$condition <- factor(ovr_nsig_data_treat$condition, levels = c("Control", "Drought", "Spain", "Sweden"))
+ovr_nsig_data_treat$test <- factor(ovr_nsig_data_treat$test, levels = c("Spain", "Sweden","interaction"), labels = c( "Spain", "Sweden","Across countries"))
+ovr_nsig_data_treat$Main_test <- factor(ovr_nsig_data_treat$Main_test, levels = c("Treatment", "Treatment"), labels = c("Treatment effect", "Treatment effect"))
+  
+ggplot(data = ovr_nsig_data_treat) +
+  geom_bar(aes(x = test, y = log10(nsig), fill = condition),
+           position = "dodge",stat = "identity") +
+  geom_text(aes(test, log10(nsig), label=nsig, group = condition),
+            vjust = -0.25, size=4, position = position_dodge(width = .9)) +
+  facet_wrap(~Main_test, scales = "free_x") +
+  scale_fill_manual(values = c("#8f8f8f", "#000000", "#79402E","#46acc8")) +
+  ylab("Number of DE genes [log10]") +
+  theme_pubclean(base_size = 12) +
+  theme(axis.text.y = element_blank(), axis.ticks.y = element_blank(), axis.title.x = element_blank()) + labs(fill = "")
+
+ggsave("../figures/DE_overall_T4_treat.jpg", width = 20, height = 15, units = "cm")
+
+```
+
+## plot country
+
+```{r plot count, message=FALSE, warning=FALSE}
+
+ovr_nsig_data_count <- rbind(ovr_plot_cont, ovr_plot_drought)
+
+ovr_nsig_data_count <- ovr_nsig_data_count %>%
+  mutate(Main_test = ifelse(any(grepl("Control-", test)), "Country", "Country"))
+
+ovr_nsig_data_count$condition <- factor(ovr_nsig_data_count$condition, levels = c("Control", "Drought", "Spain", "Sweden"))
+ovr_nsig_data_count$test <- factor(ovr_nsig_data_count$test, levels = c("Control-All", "Drought-All"), labels = c("Control","Drought"))
+ovr_nsig_data_count$Main_test <- factor(ovr_nsig_data_count$Main_test, levels = c("Country", "Country"), labels = c("Country effect", "Country effect"))
+  
+ggplot(data = ovr_nsig_data_count) +
+  geom_bar(aes(x = test, y = log10(nsig), fill = condition),
+           position = "dodge",stat = "identity") +
+  geom_text(aes(test, log10(nsig), label=nsig, group = condition),
+            vjust = -0.25, size=4, position = position_dodge(width = .9)) +
+  facet_wrap(~Main_test, scales = "free_x") +
+  scale_fill_manual(values = c("#79402E","#46acc8")) +
+  ylab("Number of DE genes [log10]") +
+  theme_pubclean(base_size = 12) +
+  theme(axis.text.y = element_blank(), axis.ticks.y = element_blank(), axis.title.x = element_blank()) + labs(fill = "")
+
+ggsave("../figures/DE_overall_T4_country.jpg", width = 20, height = 15, units = "cm")
 
 ```
 
@@ -165,7 +223,7 @@ treemap_ES_D <- ggplot(data = es_all_tdb, aes(fill = mean_log2FC, area = num_sig
   theme_pubclean(base_size = 12) +
   scale_fill_gradient(low = "#b05d43", high = "#422319") + labs(fill = "Mean log2 fold-change")
 
-ggsave("../figures/treemap_ES_D.jpeg", width = 20, height = 15, units = "cm")
+ggsave("../figures/treemap_ES_D_T4.jpeg", width = 20, height = 15, units = "cm")
 
 ```
 
@@ -178,7 +236,7 @@ drought_es %>%
 head(es_all_tdb, 10)
 
 ```
-***12 transcripts in total that were significantly expressed in drought compared to control.***
+***17 transcripts in total that were significantly expressed in drought compared to control.***
 
 # Effect of drought in Sweden
 
@@ -197,7 +255,7 @@ treemap_SE_D <- ggplot(data = se_all_tdb, aes(fill = mean_log2FC, area = num_sig
   theme_pubclean(base_size = 12) +
   scale_fill_gradient(low = "#46acc8", high = "#1b3d5a") + labs(fill = "Mean log2 fold-change")
 
-ggsave("../figures/treemap_SE_D.jpeg", width = 20, height = 15, units = "cm")
+ggsave("../figures/treemap_SE_D_T4.jpeg", width = 20, height = 15, units = "cm")
 
 ```
 
@@ -205,17 +263,16 @@ ggsave("../figures/treemap_SE_D.jpeg", width = 20, height = 15, units = "cm")
 
 drought_se %>% 
  filter(condition == "Drought") %>%
- View()
+ dim()
  sum(se_all_tdb$num_sig)
 head(se_all_tdb, 10)
 
 ```
-***71 transcripts in total that were significantly expressed in drought compared to control.***
+***47 transcripts in total that were significantly expressed in drought compared to control.***
 
 ```{r}
 
 ggarrange(treemap_ES_D, treemap_SE_D, nrow = 2, labels=c("a)", "b)"))
-ggsave("../figures/treemap_all_D.jpeg", width = 18, height = 20, units = "cm")
+ggsave("../figures/treemap_all_D_T4.jpeg", width = 18, height = 20, units = "cm")
 
 ```
-

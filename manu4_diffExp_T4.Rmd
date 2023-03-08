@@ -1,0 +1,280 @@
+---
+title: "manu4_diffExp_T4"
+author: "Katja K"
+date: "24/11/2021"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r packages, include=FALSE}
+
+library(DESeq2)
+library(tidyverse)
+
+```
+
+# Metadata 
+
+```{r metadata}
+
+sampledata <- read.table("../../seq_data/sample.data", row.names = 1, header=T)
+sampledata$Time <- as.factor(sampledata$Time)
+
+sampledata_filt <- sampledata %>%
+  filter(Time =="T4")
+
+```
+
+# Differential expression 
+## model all
++ time point T4
++ based on raw counts
++ 2 countries (SE, ES), 2 treatments (C, D)
++ response of both countries to treatment
++ differences in the response between countries (interaction)
+
+```{r diffExp overall, message=FALSE, warning=FALSE}
+
+#unfiltered counts, ID level
+gene_counts_ID <- read.table("../../seq_data/enzID_counts_sort.tsv", header = T, row.names = 1, check.names = F)
+gene_counts_ID_filt <- gene_counts_ID[,-c(1:20)]
+
+set.seed(6282)
+de_all <- DESeqDataSetFromMatrix(countData=ceiling(gene_counts_ID_filt),colData=sampledata_filt,design=~Country+Treatment)
+
+de_all$Country <- as.factor(de_all$Country)
+de_all$Treatment <- as.factor(de_all$Treatment)
+
+design(de_all) <- ~ Country + Treatment + Country:Treatment
+set.seed(2741)
+de_all <- DESeq(de_all) 
+resultsNames(de_all)
+
+saveRDS(de_all, file = "../../seq_data/de_T4_model.rds")
+
+```
+
+## drought in Spain
+
+```{r drought in ES, message=FALSE, warning=FALSE}
+
+#The effect of drought in Spain (the main effect).
+res = results(de_all, contrast=c("Treatment","D","C"))
+res$padj[is.na(res$padj)] <- 1
+summary(res)
+
+# all genes
+nrow(as.data.frame(res))
+# only genes with padj <0.05
+nrow(dplyr::filter(as.data.frame(res),padj<0.05))
+#down regulated
+nrow(dplyr::filter(as.data.frame(res),padj<0.05,(log2FoldChange)<0))
+#up regulated
+nrow(dplyr::filter(as.data.frame(res),padj<0.05,(log2FoldChange)>0))
+
+res_signif <- dplyr::filter(as.data.frame(res),padj<0.05)
+dim(res_signif)
+
+# sort
+res_signif <- res_signif[order(abs(res_signif$log2FoldChange),decreasing = T),] 
+write.table(res_signif,"../results/DE_T4_D_ES.tsv",row.names = TRUE, col.names = TRUE, sep = "\t")
+
+```
+
+## drought in Sweden
+
+```{r drought in SE, message=FALSE, warning=FALSE}
+
+#The effect of drought in Sweden
+res = results(de_all, list(c("Treatment_D_vs_C","CountrySE.TreatmentD")))
+res$padj[is.na(res$padj)] <- 1
+summary(res)
+
+# all genes
+nrow(as.data.frame(res))
+# only genes with padj <0.05
+nrow(dplyr::filter(as.data.frame(res),padj<0.05))
+#down regulated
+nrow(dplyr::filter(as.data.frame(res),padj<0.05,(log2FoldChange)<0))
+#up regulated
+nrow(dplyr::filter(as.data.frame(res),padj<0.05,(log2FoldChange)>0))
+
+res_signif <- dplyr::filter(as.data.frame(res),padj<0.05)
+dim(res_signif)
+
+# sort
+res_signif <- res_signif[order(abs(res_signif$log2FoldChange),decreasing = T),] 
+write.table(res_signif,"../results/DE_T4_D_SE.tsv",row.names = TRUE, col.names = TRUE, sep = "\t")
+
+```
+
+## difference between ES and SE in C
+
+```{r all ESvsSE control, message=FALSE, warning=FALSE}
+
+res = results(de_all, contrast=c("Country","ES","SE"))
+res$padj[is.na(res$padj)] <- 1
+summary(res)
+
+# all genes
+nrow(as.data.frame(res))
+# only genes with padj <0.05
+nrow(dplyr::filter(as.data.frame(res),padj<0.05))
+nrow(dplyr::filter(as.data.frame(res),padj<0.05,(log2FoldChange)<0))
+nrow(dplyr::filter(as.data.frame(res),padj<0.05,(log2FoldChange)>0))
+
+res_signif <- dplyr::filter(as.data.frame(res),padj<0.05)
+
+# sort
+res_signif <- res_signif[order(abs(res_signif$log2FoldChange),decreasing = T),] 
+write.table(res_signif,"../results/DE_T4_ESvsSE_C.tsv",row.names = TRUE, col.names = TRUE, sep = "\t")
+
+```
+
+## difference between ES and SE in D
+
+```{r all ESvsSE drought, message=FALSE, warning=FALSE}
+
+res = results(de_all, list(c("Country_SE_vs_ES", "CountrySE.TreatmentD")))
+res$padj[is.na(res$padj)] <- 1
+summary(res)
+
+# all genes
+nrow(as.data.frame(res))
+# only genes with padj <0.05
+nrow(dplyr::filter(as.data.frame(res),padj<0.05))
+nrow(dplyr::filter(as.data.frame(res),padj<0.05,(log2FoldChange)<0))
+nrow(dplyr::filter(as.data.frame(res),padj<0.05,(log2FoldChange)>0))
+
+res_signif <- dplyr::filter(as.data.frame(res),padj<0.05)
+
+# sort
+res_signif <- res_signif[order(abs(res_signif$log2FoldChange),decreasing = T),] 
+write.table(res_signif,"../results/DE_T4_ESvsSE_D.tsv",row.names = TRUE, col.names = TRUE, sep = "\t")
+
+```
+
+## response across countries (interaction)
+
+```{r all interaction, message=FALSE, warning=FALSE}
+
+res = results(de_all, name="CountrySE.TreatmentD")
+res$padj[is.na(res$padj)] <- 1
+summary(res)
+
+# all genes
+nrow(as.data.frame(res))
+# only genes with padj <0.05
+nrow(dplyr::filter(as.data.frame(res),padj<0.05))
+nrow(dplyr::filter(as.data.frame(res),padj<0.05,(log2FoldChange)<0))
+nrow(dplyr::filter(as.data.frame(res),padj<0.05,(log2FoldChange)>0))
+
+res_signif <- dplyr::filter(as.data.frame(res),padj<0.05)
+
+# sort
+res_signif <- res_signif[order(abs(res_signif$log2FoldChange),decreasing = T),] 
+write.table(res_signif,"../results/DE_T4_interaction.tsv",row.names = TRUE, col.names = TRUE, sep = "\t")
+
+```
+
+## separate DE
++ based on raw counts
++ for each country separately
++ treatment (2 levels)
+
+### Spain
+
+```{r diffExp Spain, message=FALSE, warning=FALSE}
+
+es_meta <- sampledata %>%
+  filter(Country == "ES") %>%
+  filter(Time == "T4")
+es_meta$Farm <- factor(es_meta$Farm)
+
+counts_ES <- gene_counts_ID_filt[,c(1:10)]
+
+set.seed(6282)
+de_spain <- DESeqDataSetFromMatrix(countData=ceiling(counts_ES),colData=es_meta,design=~Treatment)
+
+design(de_spain) <- ~ Treatment 
+set.seed(2741)
+de_spain <- DESeq(de_spain) 
+resultsNames(de_spain)
+
+saveRDS(de_spain, file = "../../seq_data/de_ES_T4_model.rds")
+
+```
+
+```{r}
+
+d_spain <- readRDS("../../seq_data/de_ES_T4_model.rds")
+
+res = results(d_spain, contrast=c("Treatment","D","C"))
+res$padj[is.na(res$padj)] <- 1
+summary(res)
+
+# all genes
+nrow(as.data.frame(res))
+# only genes with padj <0.05
+nrow(dplyr::filter(as.data.frame(res),padj<0.05))
+nrow(dplyr::filter(as.data.frame(res),padj<0.05,(log2FoldChange)<0))
+nrow(dplyr::filter(as.data.frame(res),padj<0.05,(log2FoldChange)>0))
+
+res_signif <- dplyr::filter(as.data.frame(res),padj<0.05)
+nrow(res_signif)
+
+# sort
+res_signif <- res_signif[order(abs(res_signif$log2FoldChange),decreasing = T),] 
+write.csv(res_signif,"../results/DE_ES_T4_drought.csv",row.names=T)
+
+```
+
+### Sweden
+
+```{r diffExp Sweden, message=FALSE, warning=FALSE}
+
+se_meta <- sampledata %>%
+  filter(Country == "SE") %>%
+  filter(Time =="T4")
+se_meta$Farm <- factor(se_meta$Farm)
+
+counts_SE <- gene_counts_ID_filt[,-c(1:10)]
+
+set.seed(6282)
+de_sweden <- DESeqDataSetFromMatrix(countData=ceiling(counts_SE),colData=se_meta,design=~Treatment)
+
+design(de_sweden) <- ~ Treatment
+set.seed(2741)
+de_sweden <- DESeq(de_sweden) 
+resultsNames(de_sweden)
+
+saveRDS(de_sweden, file = "../../seq_data/de_SE_T4_model.rds")
+
+```
+
+```{r}
+
+d_sweden <- readRDS("../../seq_data/de_SE_T4_model.rds")
+
+res = results(d_sweden, contrast=c("Treatment","D","C"))
+res$padj[is.na(res$padj)] <- 1
+summary(res)
+
+# all genes
+nrow(as.data.frame(res))
+# only genes with padj <0.05
+nrow(dplyr::filter(as.data.frame(res),padj<0.05))
+nrow(dplyr::filter(as.data.frame(res),padj<0.05,(log2FoldChange)<0))
+nrow(dplyr::filter(as.data.frame(res),padj<0.05,(log2FoldChange)>0))
+
+res_signif <- dplyr::filter(as.data.frame(res),padj<0.05)
+nrow(res_signif)
+
+# sort
+res_signif <- res_signif[order(abs(res_signif$log2FoldChange),decreasing = T),] 
+write.csv(res_signif,"../results/DE_SE_T4_drought.csv",row.names=T)
+
+```
