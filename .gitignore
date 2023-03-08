@@ -1,5 +1,4 @@
 # ignore all files starting with . or ~
 .*
 ~*
-metatrans_drought.Rproj
 
