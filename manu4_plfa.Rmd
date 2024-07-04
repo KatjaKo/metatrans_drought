@@ -1,0 +1,1158 @@
+---
+title: "manuscript_4_PLFA"
+author: "Katja Kozjek"
+output: 
+  rmarkdown::html_document:
+    code_folding: 'hide'
+    toc: true
+    toc_float: true
+    smart: true
+    number_sections: false
+    highlight: tango
+    self_contained: true
+    smaller: true
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r wrap-hook, include=FALSE}
+library(knitr)
+hook_output = knit_hooks$get('output')
+knit_hooks$set(output = function(x, options) {
+  # this hook is used only when the linewidth option is not NULL
+  if (!is.null(n <- options$linewidth)) {
+    x = knitr:::split_lines(x)
+    # any lines wider than n should be wrapped
+    if (any(nchar(x) > n)) x = strwrap(x, width = n)
+    x = paste(x, collapse = '\n')
+  }
+  hook_output(x, options)
+})
+```
+
+```{r packages, include=FALSE}
+
+library(ggplot2)
+library(vegan)
+library(ggpubr)
+library(lmerTest)
+library(tidyverse)
+
+```
+
+```{r}
+
+data_summary <- function(data, varname, groupnames){
+  require(plyr)
+  summary_func <- function(x, col){
+    c(mean = mean(x[[col]], na.rm=TRUE),
+      se = sd(x[[col]], na.rm=TRUE) / sqrt(sum(!is.na(x[[col]]))))
+  }
+  data_sum<-ddply(data, groupnames, .fun=summary_func,
+                  varname)
+  data_sum <- rename(data_sum, c("mean" = varname))
+  return(data_sum)
+}
+
+```
+
+# Metadata
+
+```{r metadata, include=FALSE}
+library(dplyr)
+metadata_plfa <- read.csv("C:/Users/Katja/Box/PhD Katja/RNA 2020_2021/metadata.csv", sep=",")
+dim(metadata_plfa)
+
+metadata_plfa <- metadata_plfa %>% mutate(Site=paste0(Country,"_",Farm))
+metadata_plfa$Country <- as.factor(metadata_plfa$Country)
+metadata_plfa$Time <- as.factor(metadata_plfa$Time)
+metadata_plfa$Treatment <- as.factor(metadata_plfa$Treatment)
+metadata_plfa$Farm <- as.factor(metadata_plfa$Farm)
+
+meta_SE <- metadata_plfa %>%
+  filter(Country =="SE")
+
+meta_ES <- metadata_plfa %>%
+  filter(Country =="ES")
+
+metadata_plfa_filt <- metadata_plfa %>%
+  filter(Time %in% c("T0", "T4"))
+
+```
+
+# Gravimetric water content
+
+```{r water content, message=FALSE, warning=FALSE}
+
+water_summary <- data_summary(metadata_plfa, varname="WC", 
+                 groupnames=c("Country", "Time", "Treatment"))
+
+water_summary$Country <- factor(water_summary$Country, levels = c("ES","SE"), labels = c("Spain", "Sweden"))
+water_summary$Treatment <- factor(water_summary$Treatment,levels = c("C","D"), labels = c("Control", "Drought"))
+
+wc_plot <- ggplot(water_summary, aes(Time, WC)) +
+    geom_errorbar(
+    aes(ymin = WC-se, ymax = WC+se, color = Treatment),
+    position = position_dodge(0.3), width = 0.3, size=0.8
+    ) +
+    geom_point(aes(color = Treatment), position = position_dodge(0.3), size=3) + facet_grid(.~Country) + theme_bw() + xlab("Sampling time") + ylab("Soil water content [%]") + scale_color_manual(values = c("#8f8f8f", "#000000")) + labs(color = "Treatment") + theme(axis.text = element_text(size = 14)) + 
+  theme(axis.title = element_text(size = 14)) +
+  theme(legend.title = element_text(size = 14)) + 
+  theme(legend.text = element_text(size = 14)) + 
+  theme(strip.text.x = element_text(size = 14))
+
+ggsave("figures/wc_plot.jpeg", width = 25, height = 15, units = "cm")
+
+wc_curve <- ggplot(data=water_summary, aes(x=Time, y=WC, color=Treatment, group=Treatment)) +
+    geom_errorbar(aes(ymin=WC-se, ymax=WC+se), width=.1, size=0.8,
+    position=position_dodge(0.00)) + geom_line(aes(color=Treatment), size=1)+
+    geom_point(aes(color=Treatment)) + xlab("Sampling time") + ylab("Soil water content [%]") + labs(color="Treatment") + 
+    scale_color_manual(values=c("#000000","#8f8f8f")) + theme_bw() + 
+    theme(axis.text = element_text(size = 12)) + 
+    theme(axis.title = element_text(size = 12)) +
+    theme(legend.title = element_text(size = 12)) + 
+    theme(legend.text = element_text(size = 12)) + 
+    theme(strip.text.x = element_text(size = 12)) + facet_grid(~Country)
+
+ggsave("figures/wc_curve.jpeg", width = 25, height = 15, units = "cm")
+
+```
+
+```{r WC/WHC, message=FALSE, warning=FALSE}
+
+water_summary <- data_summary(metadata_plfa, varname="reduction", 
+                 groupnames=c("Country", "Time", "Treatment"))
+
+water_summary$Country <- factor(water_summary$Country, levels = c("ES","SE"), labels = c("Spain", "Sweden"))
+water_summary$Treatment <- factor(water_summary$Treatment,levels = c("C","D"), labels = c("Control", "Drought"))
+
+wc_plot <- ggplot(water_summary, aes(Time, reduction)) +
+    geom_errorbar(
+    aes(ymin = reduction-se, ymax = reduction+se, color = Treatment),
+    position = position_dodge(0.3), width = 0.2,size=0.8
+    ) +
+    geom_point(aes(color = Treatment), position = position_dodge(0.3)) + facet_grid(.~Country) + theme_bw() + xlab("Sampling time") + ylab("Soil moisture") + scale_color_manual(values = c("#8f8f8f", "#000000")) + labs(color = "Treatment") + theme(axis.text = element_text(size = 10)) + 
+  theme(axis.title = element_text(size = 12)) +
+  theme(legend.title = element_text(size = 12)) + 
+  theme(legend.text = element_text(size = 12)) + 
+  theme(strip.text.x = element_text(size = 12))
+
+ggsave("figures/wc_whc_plot.jpeg", width = 25, height = 15, units = "cm")
+
+```
+
+
+## stats model
+
+```{r model water, message=FALSE, warning=FALSE}
+
+set.seed(7527)
+model_WC <- lmer(WC ~ Treatment*Time + (1|Country/Site), data=metadata_plfa, REML=TRUE)
+
+#Check assumptions of the model
+qqnorm(resid(model_WC)); qqline(resid(model_WC)) #Normal distr residuals
+plot(model_WC) #Homogeneity (fitted vs residuals)
+
+set.seed(7527)
+anova_mod_WC <- anova(model_WC, type = "III")
+anova_mod_WC 
+
+write.csv(anova_mod_WC, "results/model_WC.csv")
+
+summary(model_WC)
+coef(summary(model_WC))
+
+```
+***Treatment, time and interaction effect***
+
+## post-hoc test
+
+```{r post-hoc water, message=FALSE, warning=FALSE}
+library(emmeans)
+
+emm_WC <- emmeans(model_WC, ~ Treatment*Time)
+pairs(emm_WC, simple = "each")
+
+```
+
+## per country
+
+```{r model water ES, message=FALSE, warning=FALSE}
+
+set.seed(7527)
+model_WC_ES <- lmer(WC ~ Treatment*Time + (1|Site), data=meta_ES, REML = TRUE)
+
+#Check assumptions of the model
+qqnorm(resid(model_WC_ES)); qqline(resid(model_WC_ES)) #Normal distr residuals
+plot(model_WC_ES) #Homogeneity (fitted vs residuals)
+
+anova_mod_WC_ES <- anova(model_WC_ES, type = "III")
+anova_mod_WC_ES
+
+summary(model_WC_ES)
+coef(summary(model_WC_ES))
+
+```
+***Treatment, time, interaction effect***
+
+```{r model water SE, message=FALSE, warning=FALSE}
+
+set.seed(7527)
+model_WC_SE <- lmer(WC ~ Treatment*Time + (1|Site), data=meta_SE, REML = TRUE)
+
+#Check assumptions of the model
+qqnorm(resid(model_WC_SE)); qqline(resid(model_WC_SE)) #Normal distr residuals
+plot(model_WC_SE) #Homogeneity (fitted vs residuals)
+
+anova_mod_WC_SE <- anova(model_WC_SE, type = "III")
+anova_mod_WC_SE
+
+summary(model_WC_SE)
+coef(summary(model_WC_SE))
+
+```
+***Time, treatment, interaction effect***
+
+# Respiration rates
+
+```{r respiration curve, message=FALSE, warning=FALSE}
+
+#averaged across farms
+#standard error
+
+resp <- read.table("C:/Users/Katja/Box/PhD Katja/RNA 2020_2021/resp_2020.matrix", header = T)
+
+resp$country <- factor(resp$country,levels = c("ES","SE"), labels = c("Spain", "Sweden"))
+resp$treat <- factor(resp$treat,levels = c("C","D"), labels = c("Control", "Drought"))
+resp$interaction <- factor(resp$interaction, levels = c("ES_", "ES_C", "SE_D", "SE_C"), labels = c("Spain + D", "Spain + C", "Sweden + D", "Sweden + C"))
+
+ggplot(data=resp, aes(x=time, y=respiration, color=treat, group=treat)) +
+    geom_errorbar(aes(ymin=respiration-resp_se, ymax=respiration+resp_se), size=1,width=.2, 
+                  position=position_dodge(0.00)) + geom_line(aes(color=treat), size=1)+
+    geom_point(aes(color=treat)) + xlab("Sampling time") + ylab("Soil respiration rate [µg CO2/g  soil/h]") +   labs(color="Treatment") + 
+    scale_colour_manual(values=c("#000000","#8f8f8f")) + theme_bw() + scale_y_continuous(breaks=c(0, 0.5, 1, 1.5, 2, 2.5)) + 
+    theme(axis.title = element_text(size = 12)) +
+    theme(axis.text = element_text(size = 12)) + 
+    theme(legend.title = element_text(size = 12)) + 
+    theme(legend.text = element_text(size = 12)) + facet_grid(.~country)
+
+ggsave("C:/Users/Katja/Box/PhD Katja/RNA 2020_2021/R/figures/soil_resp_curve_separate.jpeg", width = 25, height = 15, units = "cm")
+
+```
+
+```{r respiration plot, message=FALSE, warning=FALSE}
+
+resp_summary <- data_summary(metadata_plfa, varname="respiration", 
+                 groupnames=c("Country", "Time", "Treatment"))
+
+resp_summary$Country <- factor(resp_summary$Country, levels = c("ES","SE"), labels = c("Spain", "Sweden"))
+resp_summary$Treatment <- factor(resp_summary$Treatment,levels = c("C","D"), labels = c("Control", "Drought"))
+
+ggplot(resp_summary, aes(Time, respiration)) +
+    geom_errorbar(
+    aes(ymin = respiration-se, ymax = respiration+se, color = Treatment),
+    position = position_dodge(0.3), width = 0.3,size=0.8
+    ) +  geom_point(aes(color = Treatment), position = position_dodge(0.3), size=3) + facet_grid(.~Country) + theme_bw() + xlab("Sampling time") + ylab("Soil respiration rate [µg CO2/g  soil/h]") + scale_color_manual(values = c("#8f8f8f","#000000")) + labs(color = "Treatment") + theme(axis.text = element_text(size = 14)) + 
+  theme(axis.title = element_text(size = 14)) +
+  theme(legend.title = element_text(size = 14)) + 
+  theme(legend.text = element_text(size = 14)) + 
+  theme(strip.text.x = element_text(size = 14))
+
+ggsave("figures/soil_resp_plot.jpeg", width = 25, height = 15, units = "cm")
+
+```
+
+## stats model
+
+```{r model respiration, message=FALSE, warning=FALSE}
+
+set.seed(7527)
+model_resp <- lmer(respiration ~ Treatment*Time + (1|Country/Site), data=metadata_plfa, REML=TRUE)
+
+#Check assumptions of the model
+qqnorm(resid(model_resp)); qqline(resid(model_resp)) #Normal distr residuals
+plot(model_resp) #Homogeneity (fitted vs residuals)
+
+set.seed(7527)
+anova_mod_resp <- anova(model_resp, type = "III")
+anova_mod_resp 
+
+write.csv(anova_mod_resp, "results/model_resp.csv")
+
+summary(model_resp)
+coef(summary(model_resp))
+
+```
+***Time, treatment, interaction effect***
+
+## post-hoc test
+
+```{r post-hoc respiration, message=FALSE, warning=FALSE}
+
+emm_resp <- emmeans(model_resp, ~ Treatment*Time)
+pairs(emm_resp, simple = "each")
+
+```
+
+## per country
+
+```{r model resp ES, message=FALSE, warning=FALSE}
+
+set.seed(7527)
+model_resp_ES <- lmer(respiration ~ Treatment*Time + (1|Site), data=meta_ES, REML = TRUE)
+
+#Check assumptions of the model
+qqnorm(resid(model_resp_ES)); qqline(resid(model_resp_ES)) #Normal distr residuals
+plot(model_resp_ES) #Homogeneity (fitted vs residuals)
+
+anova_mod_resp_ES <- anova(model_resp_ES, type = "III")
+anova_mod_resp_ES
+
+summary(model_resp_ES)
+coef(summary(model_resp_ES))
+
+```
+***Minor time, treatment effect***
+
+```{r model resp SE, message=FALSE, warning=FALSE}
+
+set.seed(7527)
+model_resp_SE <- lmer(respiration ~ Treatment*Time + (1|Site), data=meta_SE, REML = TRUE)
+
+#Check assumptions of the model
+qqnorm(resid(model_resp_SE)); qqline(resid(model_resp_SE)) #Normal distr residuals
+plot(model_resp_SE) #Homogeneity (fitted vs residuals)
+
+anova_mod_resp_SE <- anova(model_resp_SE, type = "III")
+anova_mod_resp_SE
+
+summary(model_resp_SE)
+coef(summary(model_resp_SE))
+
+```
+***Time effect, no treatment***
+
+# PLFA 
++ plot nmol/g 
+
+```{r PLFA all summary, include=FALSE}
+
+plfa_all <- read.csv("C:/Users/Katja/Box/PhD Katja/RNA 2020_2021/PLFA/plfa_all_data.csv", header = T, na.strings = "NA")
+plfa_all <- plfa_all %>% mutate(Site=paste0(Country,"_",Farm))
+
+#filter T0 and T4
+plfa_all_filt <- plfa_all %>%
+  filter(Time %in% c("T0", "T4"))
+
+#separate per country
+plfa_SE <- plfa_all %>%
+  filter(Country =="SE")
+
+plfa_ES <- plfa_all %>%
+  filter(Country =="ES")
+
+```
+
+## Total bacterial PLFA
++ normalized
+
+```{r plot bacterial PLFA, message=FALSE, warning=FALSE}
+
+bacterial.PLFA <- data_summary(plfa_all, varname="bacterial.PLFA.g", 
+                 groupnames=c("Treatment", "Country", "Time"))
+
+bacterial.PLFA$Country <- factor(bacterial.PLFA$Country, levels = c("ES","SE"), labels = c("Spain", "Sweden"))
+bacterial.PLFA$Treatment <- factor(bacterial.PLFA$Treatment,levels = c("C","D"), labels = c("Control","Drought"))
+
+tot_bact_PLFA <- ggplot(bacterial.PLFA, aes(Time, bacterial.PLFA.g)) + 
+      geom_errorbar(
+      aes(ymin = bacterial.PLFA.g-se, ymax = bacterial.PLFA.g+se, color = Treatment),
+      position = position_dodge(0.3), width = 0.2,size=1
+      ) +
+      geom_point(aes(color = Treatment), position = position_dodge(0.3), size=3) + facet_grid(.~Country) + theme_bw() +   theme(axis.text = element_text(size = 14)) + 
+  theme(axis.title = element_text(size = 14)) +
+  theme(legend.title = element_text(size = 14)) + 
+  theme(legend.text = element_text(size = 14)) + 
+   theme(strip.text.x = element_text(size = 14)) + 
+   scale_color_manual(values = c("#8f8f8f", "#000000")) + xlab("Sampling time") + ylab("Bacterial PLFA [nmol/g dry soil]") + 
+   theme(axis.line = element_line(colour = "black"),
+    panel.grid.major = element_blank(),
+    panel.grid.minor = element_blank(),
+    panel.background = element_blank())
+
+ggsave("figures/tot_bact_PLFA_plot.jpeg", width = 25, height = 15, units = "cm")
+
+ggplot(bacterial.PLFA, aes(fill=Treatment, y=bacterial.PLFA.g, x=Time)) + 
+    geom_bar(position="dodge", stat="identity") +  facet_grid(.~Country) + theme_bw() + 
+    geom_errorbar(
+      aes(ymin = bacterial.PLFA.g-se, ymax = bacterial.PLFA.g+se, color = Treatment),
+      position = position_dodge(0.9), width = 0.2
+      ) + theme(axis.text = element_text(size = 12)) + 
+  theme(axis.title = element_text(size = 12)) +
+  theme(legend.title = element_text(size = 12)) + 
+  theme(legend.text = element_text(size = 12)) + 
+   theme(strip.text.x = element_text(size = 12)) + 
+   scale_fill_manual(values = c("#8f8f8f","#000000")) + 
+  scale_color_manual(values = c("#8f8f8f","#000000")) +
+  xlab("Sampling time") + ylab("Bacterial PLFA [nmol/g dry soil]") + 
+   theme(axis.line = element_line(colour = "black"),
+    panel.grid.major = element_blank(),
+    panel.grid.minor = element_blank(),
+    panel.background = element_blank())
+
+ggsave("figures/tot_bact_PLFA.jpeg", width = 25, height = 15, units = "cm")
+
+```
+
+### stats model
+
+```{r model PLFA bact, message=FALSE, warning=FALSE}
+
+set.seed(7527)
+model_bact <- lmer(bacterial.PLFA.g ~ Treatment*Time + (1|Country/Site), data=plfa_all, REML=TRUE)
+
+#Check assumptions of the model
+qqnorm(resid(model_bact)); qqline(resid(model_bact)) #Normal distr residuals
+plot(model_bact) #Homogeneity (fitted vs residuals)
+
+set.seed(7527)
+anova_mod_bact <- anova(model_bact, type = "III")
+anova_mod_bact
+
+summary(model_bact)
+coef(summary(model_bact))
+
+```
+***Time effect, no treatment effect***
+
+### post-hoc test
+
+```{r post-hoc PLFA bact, message=FALSE, warning=FALSE}
+
+emm_bact <- emmeans(model_bact, ~ Treatment*Time)
+pairs(emm_bact, simple = "each")
+
+```
+
+### per country
+
+```{r model PLFA bact ES, message=FALSE, warning=FALSE}
+
+set.seed(7527)
+model_bact_ES <- lmer(bacterial.PLFA.g ~ Treatment*Time + (1|Site), data=plfa_ES, REML = TRUE)
+
+#Check assumptions of the model
+qqnorm(resid(model_bact_ES)); qqline(resid(model_bact_ES)) #Normal distr residuals
+plot(model_bact_ES) #Homogeneity (fitted vs residuals)
+
+set.seed(7527)
+anova_mod_bact_ES <- anova(model_bact_ES, type = "III")
+anova_mod_bact_ES
+
+summary(model_bact_ES)
+coef(summary(model_bact_ES))
+
+```
+***Treatment effect 0.005, interaction treat:time***
+
+```{r model PLFA bact SE, message=FALSE, warning=FALSE}
+
+set.seed(7527)
+model_bact_SE <- lmer(bacterial.PLFA.g ~ Treatment*Time + (1|Site), data=plfa_SE, REML = TRUE)
+
+#Check assumptions of the model
+qqnorm(resid(model_bact_SE)); qqline(resid(model_bact_SE)) #Normal distr residuals
+plot(model_bact_SE) #Homogeneity (fitted vs residuals)
+
+set.seed(7527)
+anova_mod_bact_SE <- anova(model_bact_SE, type = "III")
+anova_mod_bact_SE
+
+summary(model_bact_SE)
+coef(summary(model_bact_SE))
+
+```
+***Time effect, no treatment effect***
+
+## Total fungal PLFA
+
+```{r plot fungal PLFA, message=FALSE, warning=FALSE}
+
+fungal.PLFA <- data_summary(plfa_all, varname="fungal.PLFA.g", 
+                 groupnames=c("Treatment", "Country", "Time"))
+
+fungal.PLFA$Country <- factor(fungal.PLFA$Country, levels = c("ES","SE"), labels = c("Spain", "Sweden"))
+fungal.PLFA$Treatment <- factor(fungal.PLFA$Treatment,levels = c("C","D"), labels = c("Control","Drought"))
+
+tot_fung_PLFA <- ggplot(fungal.PLFA, aes(Time, fungal.PLFA.g)) + 
+      geom_errorbar(
+      aes(ymin = fungal.PLFA.g-se, ymax = fungal.PLFA.g+se, color = Treatment),
+      position = position_dodge(0.3), width = 0.2,size=1
+      ) +
+      geom_point(aes(color = Treatment), position = position_dodge(0.3), size=3) + facet_grid(.~Country) + theme_bw() + 
+  theme(axis.text = element_text(size = 14)) + 
+  theme(axis.title = element_text(size = 14)) +
+  theme(legend.title = element_text(size = 14)) + 
+  theme(legend.text = element_text(size = 14)) + 
+   theme(strip.text.x = element_text(size = 14)) + 
+   scale_color_manual(values = c("#8f8f8f","#000000")) + xlab("Sampling time") + ylab("Fungal PLFA [nmol/g dry soil]") + 
+   theme(axis.line = element_line(colour = "black"),
+    panel.grid.major = element_blank(),
+    panel.grid.minor = element_blank(),
+    panel.background = element_blank()) 
+
+ggsave("figures/tot_fung_PLFA_plot.jpeg", width = 25, height = 15, units = "cm")
+
+ggplot(fungal.PLFA, aes(fill=Treatment, y=fungal.PLFA.g, x=Time)) + 
+    geom_bar(position="dodge", stat="identity") +  facet_grid(.~Country) + theme_bw() + 
+    geom_errorbar(
+      aes(ymin = fungal.PLFA.g-se, ymax = fungal.PLFA.g+se, color = Treatment),
+      position = position_dodge(0.9), width = 0.2
+      ) + 
+  theme(axis.text = element_text(size = 12)) + 
+  theme(axis.title = element_text(size = 12)) +
+  theme(legend.title = element_text(size = 12)) + 
+  theme(legend.text = element_text(size = 12)) + 
+   theme(strip.text.x = element_text(size = 12)) + 
+   scale_fill_manual(values = c("#8f8f8f","#000000")) + 
+  scale_color_manual(values = c("#8f8f8f","#000000")) +
+  xlab("Sampling time") + ylab("Fungal PLFA [nmol/g dry soil]") + 
+   theme(axis.line = element_line(colour = "black"),
+    panel.grid.major = element_blank(),
+    panel.grid.minor = element_blank(),
+    panel.background = element_blank()) 
+
+ggsave("figures/tot_fung_PLFA.jpeg", width = 25, height = 15, units = "cm")
+      
+```
+
+### stats model
+
+```{r model PLFA fung, message=FALSE, warning=FALSE}
+
+set.seed(7527)
+model_fung <- lmer(fungal.PLFA.g ~ Treatment*Time + (1|Country/Site), data=plfa_all, REML=TRUE)
+
+#Check assumptions of the model
+qqnorm(resid(model_fung)); qqline(resid(model_fung)) #Normal distr residuals
+plot(model_fung) #Homogeneity (fitted vs residuals)
+
+set.seed(7527)
+anova_mod_fung <- anova(model_fung, type = "III")
+anova_mod_fung
+
+summary(model_fung)
+coef(summary(model_fung))
+
+```
+***Time effect, no treatment effect***
+
+### post-hoc test
+
+```{r post-hoc PLFA fung, message=FALSE, warning=FALSE}
+
+emm_fung <- emmeans(model_fung, ~ Treatment*Time)
+pairs(emm_fung, simple = "each")
+
+```
+
+### per country
+
+```{r model PLFA fung SE, message=FALSE, warning=FALSE}
+
+set.seed(7527)
+model_fung_SE <- lmer(fungal.PLFA.g ~ Treatment*Time + (1|Site), data=plfa_SE, REML = TRUE)
+
+#Check assumptions of the model
+qqnorm(resid(model_fung_SE)); qqline(resid(model_fung_SE)) #Normal distr residuals
+plot(model_fung_SE) #Homogeneity (fitted vs residuals)
+
+set.seed(7527)
+anova_mod_fung_SE <- anova(model_fung_SE, type = "III")
+anova_mod_fung_SE
+
+summary(model_fung_SE)
+coef(summary(model_fung_SE))
+
+```
+***Time effect, no treatment effect***
+***Model for ES not possible***
+
+## AMF NLFA
+
+```{r plot AMF NLFA, message=FALSE, warning=FALSE}
+
+amf.NLFA <- data_summary(plfa_all, varname="NLFAnmol.g.soil", 
+                 groupnames=c("Treatment", "Country", "Time"))
+
+amf.NLFA$Country <- factor(amf.NLFA$Country, levels = c("ES","SE"), labels = c("Spain", "Sweden"))
+amf.NLFA$Treatment <- factor(amf.NLFA$Treatment,levels = c("C","D"), labels = c("Control","Drought"))
+
+tot_AMF <- ggplot(amf.NLFA, aes(Time, NLFAnmol.g.soil)) + 
+      geom_errorbar(
+      aes(ymin = NLFAnmol.g.soil-se, ymax = NLFAnmol.g.soil+se, color = Treatment),
+      position = position_dodge(0.3), width = 0.2,size=1
+      ) +
+      geom_point(aes(color = Treatment), position = position_dodge(0.3), size=3) + facet_grid(.~Country) + theme_bw() + 
+  theme(axis.text = element_text(size = 14)) + 
+  theme(axis.title = element_text(size = 14)) +
+  theme(legend.title = element_text(size = 14)) + 
+  theme(legend.text = element_text(size = 14)) + 
+   theme(strip.text.x = element_text(size = 14)) + 
+   scale_color_manual(values = c("#8f8f8f","#000000")) + xlab("Sampling time") + ylab("AMF [nmol/g dry soil]") + 
+   theme(axis.line = element_line(colour = "black"),
+    panel.grid.major = element_blank(),
+    panel.grid.minor = element_blank(),
+    panel.background = element_blank())
+
+ggsave("figures/tot_AMF_NLFA_plot.jpeg", width = 25, height = 15, units = "cm")
+  
+ggplot(amf.NLFA, aes(fill=Treatment, y= NLFAnmol.g.soil, x=Time)) + 
+    geom_bar(position="dodge", stat="identity") +  facet_grid(.~Country) + theme_bw() + 
+    geom_errorbar(
+      aes(ymin =  NLFAnmol.g.soil-se, ymax =  NLFAnmol.g.soil+se, color = Treatment),
+      position = position_dodge(0.9), width = 0.2
+      ) + 
+  theme(axis.text = element_text(size = 12)) + 
+  theme(axis.title = element_text(size = 12)) +
+  theme(legend.title = element_text(size = 12)) + 
+  theme(legend.text = element_text(size = 12)) + 
+   theme(strip.text.x = element_text(size = 12)) + 
+   scale_fill_manual(values = c("#8f8f8f","#000000")) + 
+  scale_color_manual(values = c("#8f8f8f","#000000")) +
+  xlab("Sampling time") + ylab("AMF [nmol/g dry soil]") + 
+   theme(axis.line = element_line(colour = "black"),
+    panel.grid.major = element_blank(),
+    panel.grid.minor = element_blank(),
+    panel.background = element_blank()) 
+
+ggsave("figures/tot_AMF_NLFA.jpeg", width = 25, height = 15, units = "cm")
+      
+```
+
+### stats model
+
+```{r model NLFA amf, message=FALSE, warning=FALSE}
+
+set.seed(7527)
+model_amf <- lmer(NLFAnmol.g.soil ~ Treatment*Time + (1|Country/Site), data=plfa_all, REML = TRUE)
+
+#Check assumptions of the model
+qqnorm(resid(model_amf)); qqline(resid(model_amf)) #Normal distr residuals
+plot(model_amf) #Homogeneity (fitted vs residuals)
+
+set.seed(7527)
+anova_mod_amf <- anova(model_amf, type = "III")
+anova_mod_amf
+
+summary(model_amf)
+coef(summary(model_amf))
+
+```
+***Time effect, no treatment effect***
+
+### post-hoc test
+
+```{r post-hoc NLFA amf, message=FALSE, warning=FALSE}
+
+emm_amf <- emmeans(model_amf, ~Treatment*Time)
+pairs(emm_amf, simple="each")
+
+```
+
+### per country
+
+```{r model NLFA amf ES, message=FALSE, warning=FALSE}
+
+set.seed(7527)
+model_amf_ES <- lmer(NLFAnmol.g.soil ~ Treatment*Time + (1|Site), data=plfa_ES, REML = TRUE)
+
+#Check assumptions of the model
+qqnorm(resid(model_amf_ES)); qqline(resid(model_amf_ES)) #Normal distr residuals
+plot(model_amf_ES) #Homogeneity (fitted vs residuals)
+
+set.seed(7527)
+anova_mod_amf_ES <- anova(model_amf_ES, type = "III")
+anova_mod_amf_ES
+
+summary(model_amf_ES)
+coef(summary(model_amf_ES))
+
+```
+***Time effect, minor treatment effect***
+
+```{r model NLFA amf SE, message=FALSE, warning=FALSE}
+
+set.seed(7527)
+model_amf_SE <- lmer(NLFAnmol.g.soil ~ Treatment*Time + (1|Site), data=plfa_SE, REML = TRUE)
+
+#Check assumptions of the model
+qqnorm(resid(model_amf_SE)); qqline(resid(model_amf_SE)) #Normal distr residuals
+plot(model_amf_SE) #Homogeneity (fitted vs residuals)
+
+set.seed(7527)
+anova_mod_amf_SE <- anova(model_amf_SE, type = "III")
+anova_mod_amf_SE
+
+summary(model_amf_SE)
+coef(summary(model_amf_SE))
+
+```
+***Treatment, time and interaction effect***
+
+## Total PLFA
++ we will not use this one 
+
+```{r plot total PLFA, message=FALSE, warning=FALSE}
+
+total_PLFA <- data_summary(plfa_all, varname="totPLFA.g", 
+                 groupnames=c("Treatment", "Country", "Time"))
+
+total_PLFA$Country <- factor(total_PLFA$Country, levels = c("ES","SE"), labels = c("Spain", "Sweden"))
+total_PLFA$Treatment <- factor(total_PLFA$Treatment,levels = c("C","D"), labels = c("Control", "Drought"))
+
+ggplot(total_PLFA, aes(Time, totPLFA.g)) + 
+      geom_errorbar(
+      aes(ymin = totPLFA.g-se, ymax = totPLFA.g+se, color = Treatment),
+      position = position_dodge(0.3), width = 0.2,size=1
+      ) +
+      geom_point(aes(color = Treatment), position = position_dodge(0.3)) + facet_grid(.~Country) + theme_bw() + 
+  theme(axis.text = element_text(size = 12)) + 
+  theme(axis.title = element_text(size = 12)) +
+  theme(legend.title = element_text(size = 12)) + 
+  theme(legend.text = element_text(size = 12)) + 
+   theme(strip.text.x = element_text(size = 12)) + 
+   scale_color_manual(values = c("#8f8f8f","#000000")) + xlab("Sampling time") + ylab("Total PLFA [nmol/g dry soil]") + 
+   theme(axis.line = element_line(colour = "black"),
+    panel.grid.major = element_blank(),
+    panel.grid.minor = element_blank(),
+    panel.background = element_blank()) 
+
+tot_PLFA <- ggplot(total_PLFA, aes(fill=Treatment, y= totPLFA.g, x=Time)) + 
+    geom_bar(position="dodge", stat="identity") +  facet_grid(.~Country) + theme_bw() + 
+    geom_errorbar(
+      aes(ymin =  totPLFA.g-se, ymax =  totPLFA.g+se, color = Treatment),
+      position = position_dodge(0.9), width = 0.2
+      ) + 
+  theme(axis.text = element_text(size = 12)) + 
+  theme(axis.title = element_text(size = 12)) +
+  theme(legend.title = element_text(size = 12)) + 
+  theme(legend.text = element_text(size = 12)) + 
+   theme(strip.text.x = element_text(size = 12)) + 
+   scale_fill_manual(values = c("#8f8f8f","#000000")) + 
+  scale_color_manual(values = c("#8f8f8f","#000000")) +
+  xlab("Sampling time") + ylab("Total PLFA [nmol/g dry soil]") + 
+   theme(axis.line = element_line(colour = "black"),
+    panel.grid.major = element_blank(),
+    panel.grid.minor = element_blank(),
+    panel.background = element_blank()) 
+
+ggsave("figures/tot_PLFA.jpeg", width = 25, height = 15, units = "cm")
+  
+```
+
+## Fungal bacterial ratio 
++ a higher fungal:bacterial biomass ratio is linked to increased C storage potential in soils (Malik, 2016, Front.Microbiol.)
+
+```{r plot fungal_bacterial, message=FALSE, warning=FALSE}
+
+fungal_bacterial <- data_summary(plfa_all, varname="fungal.bacterial", 
+                 groupnames=c("Treatment", "Country", "Time"))
+
+fungal_bacterial$Country <- factor(fungal_bacterial$Country, levels = c("ES","SE"), labels = c("Spain", "Sweden"))
+fungal_bacterial$Treatment <- factor(fungal_bacterial$Treatment,levels = c("C","D"), labels = c("Control", "Drought"))
+
+F_B_ratio <- ggplot(fungal_bacterial, aes(Time, fungal.bacterial)) + 
+      geom_errorbar(
+      aes(ymin = fungal.bacterial-se, ymax = fungal.bacterial+se, color = Treatment),
+      position = position_dodge(0.3), width = 0.2,size=1
+      ) +
+      geom_point(aes(color = Treatment), position = position_dodge(0.3), size=3) + facet_grid(.~Country) + theme_bw() + 
+  theme(axis.text = element_text(size = 14)) + 
+  theme(axis.title = element_text(size = 14)) +
+  theme(legend.title = element_text(size = 14)) + 
+  theme(legend.text = element_text(size = 14)) + 
+   theme(strip.text.x = element_text(size = 14)) + 
+   scale_color_manual(values = c("#8f8f8f","#000000")) + xlab("Sampling time") + ylab("Fungal:Bacterial PLFA ratio [nmol/g dry soil]") + 
+   theme(axis.line = element_line(colour = "black"),
+    panel.grid.major = element_blank(),
+    panel.grid.minor = element_blank(),
+    panel.background = element_blank()) 
+
+ggsave("figures/F_B_ratio_plot.jpeg", width = 25, height = 15, units = "cm")
+
+ggplot(fungal_bacterial, aes(fill=Treatment, y= fungal.bacterial, x=Time)) + 
+    geom_bar(position="dodge", stat="identity") +  facet_grid(.~Country) + theme_bw() + 
+    geom_errorbar(
+      aes(ymin =  fungal.bacterial-se, ymax =  fungal.bacterial+se, color = Treatment),
+      position = position_dodge(0.9), width = 0.2
+      ) + 
+  theme(axis.text = element_text(size = 12)) + 
+  theme(axis.title = element_text(size = 12)) +
+  theme(legend.title = element_text(size = 12)) + 
+  theme(legend.text = element_text(size = 12)) + 
+   theme(strip.text.x = element_text(size = 12)) + 
+   scale_fill_manual(values = c("#8f8f8f","#000000")) + 
+  scale_color_manual(values = c("#8f8f8f","#000000")) +
+  xlab("Sampling time") + ylab("F:B PLFA ratio [nmol/g dry soil]") + 
+   theme(axis.line = element_line(colour = "black"),
+    panel.grid.major = element_blank(),
+    panel.grid.minor = element_blank(),
+    panel.background = element_blank()) 
+
+ggsave("figures/F_B_ratio.jpeg", width = 25, height = 15, units = "cm")
+      
+```
+
+### stats model
+
+```{r model PLFA ractio, message=FALSE, warning=FALSE}
+
+set.seed(7527)
+model_FB <- lmer(fungal.bacterial ~ Treatment*Time + (1|Country/Site), data=plfa_all, REML=TRUE)
+
+#Check assumptions of the model
+qqnorm(resid(model_FB)); qqline(resid(model_FB)) #Normal distr residuals
+plot(model_FB) #Homogeneity (fitted vs residuals)
+
+set.seed(7527)
+anova_mod_FB <- anova(model_FB, type = "III")
+anova_mod_FB
+
+write.csv(anova_mod_FB, "results/model_FBratio.csv")
+
+summary(model_FB)
+coef(summary(model_FB))
+
+```
+
+### post-hoc test
+
+```{r post-hoc PLFA ratio, message=FALSE, warning=FALSE}
+
+emm_FB <- emmeans(model_FB, ~ Treatment*Time)
+pairs(emm_FB, simple = "each")
+
+```
+
+### per country
+
+```{r model PLFA ratio ES, message=FALSE, warning=FALSE}
+
+set.seed(7527)
+model_FB_ES <- lmer(fungal.bacterial ~ Treatment*Time + (1|Site), data=plfa_ES, REML = TRUE)
+
+#Check assumptions of the model
+qqnorm(resid(model_FB_ES)); qqline(resid(model_FB_ES)) #Normal distr residuals
+plot(model_FB_ES) #Homogeneity (fitted vs residuals)
+
+set.seed(7527)
+anova_mod_FB_ES <- anova(model_FB_ES, type = "III")
+anova_mod_FB_ES
+
+summary(model_FB_ES)
+coef(summary(model_FB_ES))
+
+```
+***Treatment effect, no time effect***
+
+```{r model PLFA FB SE, message=FALSE, warning=FALSE}
+
+set.seed(7527)
+model_FB_SE <- lmer(fungal.bacterial ~ Treatment*Time + (1|Site), data=plfa_SE, REML = TRUE)
+
+#Check assumptions of the model
+qqnorm(resid(model_FB_SE)); qqline(resid(model_FB_SE)) #Normal distr residuals
+plot(model_FB_SE) #Homogeneity (fitted vs residuals)
+
+set.seed(7527)
+anova_mod_FB_SE <- anova(model_FB_SE, type = "III")
+anova_mod_FB_SE
+
+summary(model_FB_SE)
+coef(summary(model_FB_SE))
+
+```
+***Time effect, no treatment effect***
+
+## Merge figures
+
+```{r all PLFA figures, message=FALSE, warning=FALSE}
+
+tot_bact_PLFA <- tot_bact_PLFA + theme(legend.position = "none")
+tot_fung_PLFA <- tot_fung_PLFA + theme(legend.position = "none")
+tot_AMF <- tot_AMF + theme(legend.position = "none")
+
+ggarrange(tot_bact_PLFA, tot_fung_PLFA, tot_AMF, F_B_ratio, labels=c("a)", "b)", "c)", "d)"), ncol=2, nrow=2, common.legend = TRUE, legend = "right")
+
+ggsave("figures/all_results_PLFA_plot.jpeg", width = 40, height = 30, units = "cm")
+
+ggarrange(tot_bact_PLFA, tot_fung_PLFA, labels=c("a)", "b)", common.legend = TRUE, legend = "top"))
+
+ggsave("figures/bact_fung_PLFA_plot.jpeg", width = 25, height = 15, units = "cm")
+
+```
+
+```{r barcharts, eval=FALSE, include=FALSE}
+
+#stacked
+ggplot(total_PLFA, aes(fill=Treatment, y=totPLFA.g, x=Time)) + 
+    geom_bar(position="stack", stat="identity") +  facet_grid(.~Country) + theme_bw()
+#grouped
+ggplot(total_PLFA, aes(fill=Treatment, y=totPLFA.g, x=Time)) + 
+    geom_bar(position="dodge", stat="identity") +  facet_grid(.~Country) + theme_bw() + geom_errorbar(
+      aes(ymin = totPLFA.g-se, ymax = totPLFA.g+se, color = Treatment),
+      position = position_dodge(0.9), width = 0.2)
+
+#percent stacked
+ggplot(total_PLFA, aes(fill=Treatment, y=totPLFA.g, x=Time)) + 
+    geom_bar(position="fill", stat="identity") +  facet_grid(.~Country) + theme_bw()
+
+```
+
+# Plant biomass
+
+```{r biomass}
+
+biomass <- metadata_plfa %>%
+  filter(Time =="T4")
+
+biomass_summary <- data_summary(biomass, varname="biomass", 
+                 groupnames=c("Country", "Treatment"))
+
+biomass_summary$Country <- factor(biomass_summary$Country, levels = c("ES","SE"), labels = c("Spain", "Sweden"))
+
+biomass_summary$Treatment <- factor(biomass_summary$Treatment, levels = c("C","D"), labels = c("Control", "Drought"))
+
+ggplot(biomass_summary, aes(Country, biomass)) + 
+      geom_errorbar(
+      aes(ymin = biomass-se, ymax = biomass+se, color = Treatment),
+      position = position_dodge(0.3), width = 0.2,size=1
+      ) +
+      geom_point(aes(color = Treatment), position = position_dodge(0.3))  + theme_bw() + 
+  theme(axis.text = element_text(size = 12)) + 
+  theme(axis.title = element_text(size = 12)) +
+  theme(legend.title = element_text(size = 12)) + 
+  theme(legend.text = element_text(size = 12)) + 
+   theme(strip.text.x = element_text(size = 12)) + 
+   scale_color_manual(values = c("#8f8f8f","#000000")) + xlab("Country") + ylab("Barley biomass [g]") + 
+   theme(axis.line = element_line(colour = "black"),
+    panel.grid.major = element_blank(),
+    panel.grid.minor = element_blank(),
+    panel.background = element_blank()) 
+
+ggsave("figures/barley_biomass.jpeg", width = 25, height = 15, units = "cm", dpi=300)
+
+set.seed(7527)
+model_biomass <- lmer(biomass ~ Treatment*Country + (1|Site), data=biomass, REML = TRUE)
+
+#Check assumptions of the model
+qqnorm(resid(model_biomass)); qqline(resid(model_biomass)) #Normal distr residuals
+plot(model_biomass) #Homogeneity (fitted vs residuals)
+
+set.seed(7527)
+anova_mod_biomass <- anova(model_biomass, type = "III")
+anova_mod_biomass
+
+
+ggplot(biomass, aes(x=WC, y=biomass, color=Treatment), size=6) + geom_point() + geom_smooth(method=lm) + labs(colour = "Treatment") + xlab("Water content [%]") + ylab("Barley biomass [g]") + theme_bw() + facet_grid(~Country)
+
+```
+***No drought effect***
+
+# Correlations WC - PLFA
+
+```{r correlation WC - bacterial PLFA, message=FALSE, warning=FALSE}
+
+ggplot(plfa_all, aes(x=WC, y=bacterial.PLFA.g, color=Country), size=6) + geom_point() + geom_smooth(method=lm) + labs(colour = "Country") + xlab("Water content [%]") + ylab("bacterial PLFA [nmol/g]") + theme_bw() + facet_grid(.~Time)
+
+ggplot(plfa_all, aes(x=WC, y=bacterial.PLFA.g, color=Country), size=6) + geom_point() + geom_smooth(method=lm) + labs(colour = "Country") + xlab("Water content [%]") + ylab("bacterial PLFA [nmol/g]") + theme_bw()
+
+```
+
+```{r correlation WC - fungal PLFA, message=FALSE, warning=FALSE}
+
+ggplot(plfa_all, aes(x=WC, y=fungal.PLFA.g, color=Country), size=6) + geom_point() + geom_smooth(method=lm) + labs(colour = "Country") + xlab("Water content [%]") + ylab("fungal PLFA [nmol/g]") + theme_bw() + facet_grid(.~Time)
+
+ggplot(plfa_all, aes(x=WC, y=fungal.PLFA.g, color=Country), size=6) + geom_point() + geom_smooth(method=lm) + labs(colour = "Country") + xlab("Water content [%]") + ylab("fungal PLFA [nmol/g]") + theme_bw()
+
+```
+
+```{r correlation WC - AMF, message=FALSE, warning=FALSE}
+
+ggplot(plfa_all, aes(x=WC, y=NLFAnmol.g.soil, color=Country), size=6) + geom_point() + geom_smooth(method=lm) + labs(colour = "Country") + xlab("Water content [%]") + ylab("AMF [nmol/g]") + theme_bw() + facet_grid(.~Time)
+
+ggplot(plfa_all, aes(x=WC, y=NLFAnmol.g.soil, color=Country), size=6) + geom_point() + geom_smooth(method=lm) + labs(colour = "Country") + xlab("Water content [%]") + ylab("AMF [nmol/g]") + theme_bw()
+
+```
+
+```{r correlation WC - fungal_bacterial ratio, message=FALSE, warning=FALSE}
+
+ggplot(plfa_all, aes(x=WC, y=fungal.bacterial, color=Country), size=6) + geom_point() + geom_smooth(method=lm) + labs(colour = "Country") + xlab("Water content [%]") + ylab("fungal:bacterial ratio [nmol/g]") + theme_bw() + facet_grid(.~Time)
+
+ggplot(plfa_all, aes(x=WC, y=fungal.bacterial, color=Country), size=6) + geom_point() + geom_smooth(method=lm) + labs(colour = "Country") + xlab("Water content [%]") + ylab("fungal:bacterial ratio [nmol/g]") + theme_bw()
+
+```
+
+# Respiration - WC
+
+```{r respiration + WC, message=FALSE, warning=FALSE}
+
+ggplot(plfa_all, aes(x=WC, y=Respiration, color=Country), size=6) + geom_point()
+
+```
+
+# PLFA microbial groups 
++ biomarkers
++ community composition 
+
+```{r PLFA group, message=FALSE, warning=FALSE}
+
+plfa_group <- read.csv("C:/Users/Katja/Box/PhD Lund Katja/RNA 2020_2021/PLFA/norm_all_plfa.csv", header = T, na.strings = "NA", row.names = 1)
+colnames(plfa_group)
+
+plfa_group_filt <- plfa_group %>%
+  filter(Time %in% c("T0", "T4"))
+
+``` 
+
+## NMDS
+
+```{r PLFA NMDS, message=FALSE, warning=FALSE}
+
+plfa_group_nmds <- plfa_group[,7:32]
+
+set.seed(7264)
+plfa_nmds <- metaMDS(plfa_group_nmds,distance = "bray", k=2, trymax=1000, autotransform=T, permutations = 999, na.strings="NA")
+plfa_nmds$stress
+plfa_nmds$species
+plot(plfa_nmds)
+
+#plot(plfa_nmds,type="n")
+#plot(plfa_nmds,display="species") #biomarkers
+#plot(plfa_nmds,display="sites") #samples
+
+#species spores 
+envfit(plfa_nmds, plfa_group_nmds) 
+plot(plfa_nmds, type='n')
+points(plfa_nmds, display=c('sites'), choices=c(1, 2), pch=3, col='black')
+text(plfa_nmds, display=c('species'), choices=c(1, 2), col='blue', cex=0.7)
+
+#extract NMDS scores (x and y coordinates)
+data.scores_nmds = as.data.frame(scores(plfa_nmds, display = 'sites'))
+
+#species scores
+species.scores_nmds = as.data.frame(scores(plfa_nmds, display = 'species'))
+
+#add grouping variable to data frame 
+data.scores_nmds <- cbind(as.data.frame(data.scores_nmds), 
+                          Country = plfa_group$Country, Time =  plfa_group$Time, 
+                          Treatment = plfa_group$Treatment)
+#head(data.scores_nmds)
+
+ggplot(data.scores_nmds, aes(x = NMDS1, y = NMDS2)) + 
+    geom_point(size = 4, aes( shape = Treatment, colour = Country)) + 
+    theme(axis.text.y = element_text(colour = "black", size = 12, face = "bold"), 
+    axis.text.x = element_text(colour = "black", face = "bold", size = 12), 
+    legend.text = element_text(size = 12, face ="bold", colour ="black"), 
+    legend.position = "right", axis.title.y = element_text(face = "bold", size = 14), 
+    axis.title.x = element_text(face = "bold", size = 14, colour = "black"), 
+    legend.title = element_text(size = 14, colour = "black", face = "bold"), 
+    panel.background = element_blank(), panel.border = element_rect(colour = "black", fill = NA, size = 1.2),
+    legend.key=element_blank()) + 
+    labs(x = "NMDS1", colour = "Country", y = "NMDS2", shape = "Treatment") 
+    
+```
+
+## PCA
+
+```{r PLFA PCA, message=FALSE, warning=FALSE}
+
+plfa_pca <- prcomp(plfa_group_nmds)
+
+frac_var <- function(x) x^2/sum(x^2)
+library(scales)
+
+plfa_pca$sdev %>% 
+  as_tibble() %>% 
+  frac_var() %>% 
+  mutate(Comp = colnames(plfa_pca$x)) %>% 
+  slice(1:9) %>% 
+  ggplot(aes(x=Comp, y = value)) + 
+  geom_bar(stat = "identity", fill = "#4DC5F9") +
+  geom_hline(yintercept = 0.03, linetype=2) +
+  xlab("Principal Components") +
+  scale_y_continuous(name = "Variance Explained", breaks = seq(0,0.8,0.1), labels = percent_format(accuracy = 5L)) +
+  theme_classic(base_size = 14)
+
+plfa_pca_all <- plfa_pca$x %>%
+  as.data.frame() %>%
+  rownames_to_column(var = "SampleID") %>%
+  full_join(metadata_plfa_filt, by = "SampleID")
+
+plfa_pca_all$Treatment <- factor(plfa_pca_all$Treatment,
+                                        levels = c("C", "D"),
+                                        labels = c("Control", "Drought"))
+
+plfa_pca_all$Country <- factor(plfa_pca_all$Country,
+                                      levels = c("ES", "SE"),
+                                      labels = c("Spain", "Sweden"))
+
+plfa_pca_all$Time <- factor(plfa_pca_all$Time, levels = c("T0", "T4"))
+
+ggplot(plfa_pca_all, aes(x=PC1, y=PC2, color = Treatment, shape=Time)) +
+  geom_point(size = 5, alpha=0.8) +
+  theme_bw() +
+  theme(panel.grid.major = element_blank(), 
+        panel.grid.minor = element_blank()) 
+
+```
+
+## dbRDA
+
+```{r dbRDA, message=FALSE, warning=FALSE}
+
+#create the distance matrix
+set.seed(1120)
+dbrda <- dbrda(plfa_group_nmds ~ Country + Treatment + Time,plfa_group,dist="bray")
+#head(scores(dbrda, display = 'species'))
+sppscores(dbrda) <- plfa_group_nmds
+
+smry <- summary(dbrda)
+
+anova(dbrda)  # overall test of the significant of the analysis
+#anova(dbrda, by="axis", permutations = 999)
+anova(dbrda, by="term", permutations = 999)
+ordiplot(dbrda,type="t",scaling=1)
+
+#check constrained and unconstrained variance
+dbrda$CCA$tot.chi/dbrda$tot.chi
+constrained_eig <- dbrda$CCA$eig/dbrda$tot.chi*100
+unconstrained_eig <- dbrda$CA$eig/dbrda$tot.chi*100
+expl_var <- c(constrained_eig, unconstrained_eig)
+barplot (expl_var[1:20], col = c(rep ('red', length (constrained_eig)), rep ('black', length (unconstrained_eig))),
+         las = 2, ylab = '% variation')
+#calculate amount of variation explained by the axis
+b_xlabel<-paste0("db-RDA1"," ","[", round(((dbrda$CCA$eig[1]/dbrda$CA$tot)*100),1), "%]" )
+b_ylabel<-paste0("db-RDA2"," ","[", round(((dbrda$CCA$eig[2]/dbrda$CA$tot)*100),1), "%]" )
+
+sites <- smry$sites
+Time <- plfa_group$Time
+Country <- plfa_group$Country
+Treatment <- plfa_group$Treatment
+df <- as.data.frame(cbind(sites, Country, Treatment, Time))
+
+df$Time <- factor(df$Time, levels=c("T0", "T1", "T2", "T3", "T4"))
+
+ggplot(df, aes(x = dbRDA1, y = dbRDA2)) + geom_point(aes(colour = Country, shape = Treatment), size = 5,alpha=0.8) + 
+  labs(x = paste0("db-RDA1"," ","[", round(((dbrda$CCA$eig[1]/dbrda$CA$tot)*100),1), "%]" ), y = paste0("db-RDA2"," ","[", round(((dbrda$CCA$eig[2]/dbrda$CA$tot)*100),1), "%]" )) + 
+  geom_vline(xintercept = 0, linetype="dotted") +
+  geom_hline(yintercept = 0, linetype="dotted") +
+  theme_bw() + 
+  theme(text = element_text(size = 14)) + 
+  theme(axis.title = element_text(size = 12, colour = "black"), axis.ticks = element_blank(), axis.text = element_blank(), legend.key = element_blank(), legend.title = element_text(size = 11, colour = "black"), legend.text = element_text(size = 10, colour = "black")) + labs(colour = "Country", shape= "Treatment") 
+
+```
+
