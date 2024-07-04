@@ -1,0 +1,107 @@
+---
+title: "Taxa_drought"
+author: "Lokesh"
+date: "`r paste0('<b>Lokesh Mano</b> • ',format(Sys.time(), '%d-%b-%Y'))`"
+output: 
+  rmarkdown::html_document:
+    code_folding: 'hide'
+    toc: true
+    toc_float: true
+    smart: true
+    number_sections: true
+    highlight: tango
+    self_contained: true
+    smaller: true
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r wrap-hook, include=FALSE}
+# Ignore this part! This is only for formatting this document in the html file!
+library(knitr)
+hook_output = knit_hooks$get('output')
+knit_hooks$set(output = function(x, options) {
+  # this hook is used only when the linewidth option is not NULL
+  if (!is.null(n <- options$linewidth)) {
+    x = knitr:::split_lines(x)
+    # any lines wider than n should be wrapped
+    if (any(nchar(x) > n)) x = strwrap(x, width = n)
+    x = paste(x, collapse = '\n')
+  }
+  hook_output(x, options)
+})
+```
+
+# Taxa of DE
+
+```{r, message=FALSE, warning=FALSE}
+library(ggplot2)
+library(dplyr)
+library(tidyverse)
+library(ggpubr)
+
+load("diffExp_T4.RData")
+exTDB_taxa <- read.table("../../data/exTDB_ids_taxa.txt", sep = "\t", fill = T)
+colnames(exTDB_taxa) <- c('Transcript', 'Kingdom', 'Phylum', 'Class', 'Order', 'Family', 'Genus', 'Species')
+
+dr_es_tax <- drought_es %>% 
+  left_join(exTDB_taxa, by = "Transcript") %>%
+  group_by(condition, enz_class, enz_family, Phylum) %>%
+  summarise(nsig= n()) %>%
+  mutate(country = "Spain")
+  
+dr_se_tax <- drought_se  %>% 
+  left_join(exTDB_taxa, by = "Transcript") %>%
+  group_by(condition, enz_class, enz_family, Phylum) %>%
+  summarise(nsig= n()) %>%
+  mutate(country = "Sweden")
+
+dr_int_tax <- int_all  %>% 
+  left_join(exTDB_taxa, by = "Transcript") %>%
+  group_by(condition, enz_class, enz_family, Phylum) %>%
+  summarise(nsig= n()) %>%
+  mutate(country = "Interaction")
+
+tax_all <- rbind(dr_es_tax, dr_se_tax, dr_int_tax) %>%
+  mutate_all(na_if,"") %>%
+  mutate(Phylum = ifelse(is.na(Phylum), "Unknown", Phylum))
+
+top_taxa <- tax_all %>% 
+  group_by(Phylum) %>%
+  summarise(sum = sum(nsig)) %>%
+  arrange(desc(sum)) %>%
+  head(10)
+
+top_enz <- tax_all %>% 
+  group_by(enz_family) %>%
+  summarise(sum = sum(nsig)) %>%
+  arrange(desc(sum)) %>%
+  filter(sum >= 5)
+
+tax_all <- tax_all %>%
+  mutate(Phylum = ifelse(Phylum %in% top_taxa$Phylum, Phylum, "Others")) %>%
+  filter(enz_family %in% top_enz$enz_family)
+tax_all$country <- factor(tax_all$country, levels = c("Spain", "Sweden", "Interaction"), labels = c("Spain", "Sweden", "Across countries"))
+
+library(ggh4x)
+
+ggplot(tax_all, aes(x = nsig, y = enz_family, fill = Phylum)) +
+  geom_col(position = "stack") +
+  facet_nested(enz_class ~ country + condition, scales = "free_y", space = "free") +
+  theme_light(base_size = 16) +
+  scale_fill_manual(values = c("#46ACC8", "#CEAB07", "#006400","#35274A" ,"#bdb76b", "#79402E","#81A88D","#9986A5","#EAD3BF","#DD8D29","#8D8680")) +
+  xlab(label = "Number of DE genes") +
+  theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank()) +  ylab("CAZy enzyme family")
+```
+
+```{r}
+
+ggplot(tax_all) + geom_col(mapping = aes(x = condition, y = nsig, fill = Phylum), position = "stack", show.legend = TRUE) + facet_wrap(~country) + scale_fill_manual(values = c("#46ACC8", "#CEAB07", "#006400","#35274A" ,"#bdb76b", "#79402E","#81A88D","#9986A5","#EAD3BF","#DD8D29","#8D8680")) + xlab("Treatment") + ylab("Number of DE genes") + theme_bw() + theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank(), panel.background = element_blank(), axis.line = element_line(colour = "black")) + theme(axis.text = element_text(size = 12)) + 
+  theme(axis.title = element_text(size = 12)) +
+  theme(legend.title = element_text(size = 12)) + 
+  theme(legend.text = element_text(size = 12)) + 
+  theme(strip.text.x = element_text(size = 12))
+
+```
