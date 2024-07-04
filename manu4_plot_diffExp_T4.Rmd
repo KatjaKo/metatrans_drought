@@ -139,12 +139,16 @@ ggplot(data = ovr_nsig_data) +
   geom_bar(aes(x = test, y = log10(nsig), fill = condition),
            position = "dodge",stat = "identity") +
   geom_text(aes(test, log10(nsig), label=nsig, group = condition),
-            vjust = -0.25, size=4, position = position_dodge(width = .9)) +
+            vjust = -0.25, size=6, position = position_dodge(width = .9)) +
   facet_wrap(~Main_test, scales = "free_x") +
   scale_fill_manual(values = c("#8f8f8f","#000000", "#79402E","#46acc8")) +
   ylab("Number of DE genes [log10]") +
   theme_pubclean(base_size = 12) +
-  theme(axis.text.y = element_blank(), axis.ticks.y = element_blank(), axis.title.x = element_blank()) + labs(fill = "")
+  theme(axis.text.y = element_blank(), axis.ticks.y = element_blank(), axis.title.x = element_blank()) + labs(fill = "") +   theme(axis.text = element_text(size = 14)) + 
+  theme(axis.title = element_text(size = 14)) +
+  theme(legend.title = element_text(size = 14)) + 
+  theme(legend.text = element_text(size = 14)) + 
+   theme(strip.text.x = element_text(size = 14))
 
 ggsave("../figures/DE_overall_T4.jpg", width = 20, height = 15, units = "cm")
 
@@ -167,12 +171,17 @@ ggplot(data = ovr_nsig_data_treat) +
   geom_bar(aes(x = test, y = log10(nsig), fill = condition),
            position = "dodge",stat = "identity") +
   geom_text(aes(test, log10(nsig), label=nsig, group = condition),
-            vjust = -0.25, size=4, position = position_dodge(width = .9)) +
+            vjust = -0.25, size=6, position = position_dodge(width = .9)) +
   facet_wrap(~Main_test, scales = "free_x") +
   scale_fill_manual(values = c("#8f8f8f", "#000000", "#79402E","#46acc8")) +
   ylab("Number of DE genes [log10]") +
   theme_pubclean(base_size = 12) +
-  theme(axis.text.y = element_blank(), axis.ticks.y = element_blank(), axis.title.x = element_blank()) + labs(fill = "")
+  theme(axis.text.y = element_blank(), axis.ticks.y = element_blank(), axis.title.x = element_blank()) + labs(fill = "") + 
+    theme(axis.text = element_text(size = 14)) + 
+  theme(axis.title = element_text(size = 14)) +
+  theme(legend.title = element_text(size = 14)) + 
+  theme(legend.text = element_text(size = 14)) + 
+   theme(strip.text.x = element_text(size = 14))
 
 ggsave("../figures/DE_overall_T4_treat.jpg", width = 20, height = 15, units = "cm")
 
@@ -195,12 +204,16 @@ ggplot(data = ovr_nsig_data_count) +
   geom_bar(aes(x = test, y = log10(nsig), fill = condition),
            position = "dodge",stat = "identity") +
   geom_text(aes(test, log10(nsig), label=nsig, group = condition),
-            vjust = -0.25, size=4, position = position_dodge(width = .9)) +
+            vjust = -0.25, size=6, position = position_dodge(width = .9)) +
   facet_wrap(~Main_test, scales = "free_x") +
   scale_fill_manual(values = c("#79402E","#46acc8")) +
   ylab("Number of DE genes [log10]") +
   theme_pubclean(base_size = 12) +
-  theme(axis.text.y = element_blank(), axis.ticks.y = element_blank(), axis.title.x = element_blank()) + labs(fill = "")
+  theme(axis.text.y = element_blank(), axis.ticks.y = element_blank(), axis.title.x = element_blank()) + labs(fill = "") +   theme(axis.text = element_text(size = 14)) + 
+  theme(axis.title = element_text(size = 14)) +
+  theme(legend.title = element_text(size = 14)) + 
+  theme(legend.text = element_text(size = 14)) + 
+   theme(strip.text.x = element_text(size = 14))
 
 ggsave("../figures/DE_overall_T4_country.jpg", width = 20, height = 15, units = "cm")
 

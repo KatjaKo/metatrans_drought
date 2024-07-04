@@ -39,7 +39,9 @@ sampledata_filt <- sampledata %>%
 ```{r diffExp overall, message=FALSE, warning=FALSE}
 
 #unfiltered counts, ID level
-gene_counts_ID <- read.table("../../seq_data/enzID_counts_sort.tsv", header = T, row.names = 1, check.names = F)
+#gene_counts_ID <- read.table("../../seq_data/enzID_counts_sort.tsv", header = T, row.names = 1, check.names = F)
+gene_counts_ID <- read.table("../../seq_data/enzID_filt_counts.tsv", header = T, row.names = 1, check.names = F)
+
 gene_counts_ID_filt <- gene_counts_ID[,-c(1:20)]
 
 set.seed(6282)

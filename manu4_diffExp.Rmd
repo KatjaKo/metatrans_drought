@@ -26,7 +26,7 @@ sampledata$Time <- as.factor(sampledata$Time)
 
 # Differential expression 
 ## model all
-+ based on raw counts
++ based on raw counts (filtered raw counts)
 + 2 countries (SE, ES), 2 treatments (C, D)
 + response of both countries to treatment
 + differences in the response between countries (interaction)
@@ -34,7 +34,9 @@ sampledata$Time <- as.factor(sampledata$Time)
 ```{r diffExp overall, message=FALSE, warning=FALSE}
 
 #unfiltered counts, ID level
-gene_counts_ID <- read.table("../../seq_data/enzID_counts_sort.tsv", header = T, row.names = 1, check.names = F)
+#gene_counts_ID <- read.table("../../seq_data/enzID_counts_sort.tsv", header = T, row.names = 1, check.names = F)
+gene_counts_ID <- read.table("../../seq_data/enzID_filt_counts.tsv", header = T, row.names = 1, check.names = F)
+
 
 set.seed(6282)
 de_all <- DESeqDataSetFromMatrix(countData=ceiling(gene_counts_ID),colData=sampledata,design=~Country+Treatment)
