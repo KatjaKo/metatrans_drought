@@ -20,7 +20,7 @@ library(tidyverse)
 
 ```{r metadata}
 
-sampledata <- read.table("../../seq_data/sample.data", row.names = 1, header=T)
+sampledata <- read.table("../seq_data/sample.data", row.names = 1, header=T)
 sampledata$Time <- as.factor(sampledata$Time)
 
 sampledata_filt <- sampledata %>%
@@ -40,7 +40,7 @@ sampledata_filt <- sampledata %>%
 
 #unfiltered counts, ID level
 #gene_counts_ID <- read.table("../../seq_data/enzID_counts_sort.tsv", header = T, row.names = 1, check.names = F)
-gene_counts_ID <- read.table("../../seq_data/enzID_filt_counts.tsv", header = T, row.names = 1, check.names = F)
+gene_counts_ID <- read.table("../seq_data/enzID_filt_counts.tsv", header = T, row.names = 1, check.names = F)
 
 gene_counts_ID_filt <- gene_counts_ID[,-c(1:20)]
 
@@ -55,7 +55,7 @@ set.seed(2741)
 de_all <- DESeq(de_all) 
 resultsNames(de_all)
 
-saveRDS(de_all, file = "../../seq_data/de_T4_model.rds")
+saveRDS(de_all, file = "../seq_data/de_T4_model.rds")
 
 ```
 
@@ -82,7 +82,7 @@ dim(res_signif)
 
 # sort
 res_signif <- res_signif[order(abs(res_signif$log2FoldChange),decreasing = T),] 
-write.table(res_signif,"../results/DE_T4_D_ES.tsv",row.names = TRUE, col.names = TRUE, sep = "\t")
+write.table(res_signif,"./results/DE_T4_D_ES.tsv",row.names = TRUE, col.names = TRUE, sep = "\t")
 
 ```
 
@@ -109,7 +109,7 @@ dim(res_signif)
 
 # sort
 res_signif <- res_signif[order(abs(res_signif$log2FoldChange),decreasing = T),] 
-write.table(res_signif,"../results/DE_T4_D_SE.tsv",row.names = TRUE, col.names = TRUE, sep = "\t")
+write.table(res_signif,"./results/DE_T4_D_SE.tsv",row.names = TRUE, col.names = TRUE, sep = "\t")
 
 ```
 
@@ -132,7 +132,7 @@ res_signif <- dplyr::filter(as.data.frame(res),padj<0.05)
 
 # sort
 res_signif <- res_signif[order(abs(res_signif$log2FoldChange),decreasing = T),] 
-write.table(res_signif,"../results/DE_T4_ESvsSE_C.tsv",row.names = TRUE, col.names = TRUE, sep = "\t")
+write.table(res_signif,"./results/DE_T4_ESvsSE_C.tsv",row.names = TRUE, col.names = TRUE, sep = "\t")
 
 ```
 
@@ -155,7 +155,7 @@ res_signif <- dplyr::filter(as.data.frame(res),padj<0.05)
 
 # sort
 res_signif <- res_signif[order(abs(res_signif$log2FoldChange),decreasing = T),] 
-write.table(res_signif,"../results/DE_T4_ESvsSE_D.tsv",row.names = TRUE, col.names = TRUE, sep = "\t")
+write.table(res_signif,"./results/DE_T4_ESvsSE_D.tsv",row.names = TRUE, col.names = TRUE, sep = "\t")
 
 ```
 
@@ -178,7 +178,7 @@ res_signif <- dplyr::filter(as.data.frame(res),padj<0.05)
 
 # sort
 res_signif <- res_signif[order(abs(res_signif$log2FoldChange),decreasing = T),] 
-write.table(res_signif,"../results/DE_T4_interaction.tsv",row.names = TRUE, col.names = TRUE, sep = "\t")
+write.table(res_signif,"./results/DE_T4_interaction.tsv",row.names = TRUE, col.names = TRUE, sep = "\t")
 
 ```
 
@@ -206,13 +206,13 @@ set.seed(2741)
 de_spain <- DESeq(de_spain) 
 resultsNames(de_spain)
 
-saveRDS(de_spain, file = "../../seq_data/de_ES_T4_model.rds")
+saveRDS(de_spain, file = "../seq_data/de_ES_T4_model.rds")
 
 ```
 
 ```{r}
 
-d_spain <- readRDS("../../seq_data/de_ES_T4_model.rds")
+d_spain <- readRDS("../seq_data/de_ES_T4_model.rds")
 
 res = results(d_spain, contrast=c("Treatment","D","C"))
 res$padj[is.na(res$padj)] <- 1
@@ -230,7 +230,7 @@ nrow(res_signif)
 
 # sort
 res_signif <- res_signif[order(abs(res_signif$log2FoldChange),decreasing = T),] 
-write.csv(res_signif,"../results/DE_ES_T4_drought.csv",row.names=T)
+write.csv(res_signif,"./results/DE_ES_T4_drought.csv",row.names=T)
 
 ```
 
@@ -253,13 +253,13 @@ set.seed(2741)
 de_sweden <- DESeq(de_sweden) 
 resultsNames(de_sweden)
 
-saveRDS(de_sweden, file = "../../seq_data/de_SE_T4_model.rds")
+saveRDS(de_sweden, file = "../seq_data/de_SE_T4_model.rds")
 
 ```
 
 ```{r}
 
-d_sweden <- readRDS("../../seq_data/de_SE_T4_model.rds")
+d_sweden <- readRDS("../seq_data/de_SE_T4_model.rds")
 
 res = results(d_sweden, contrast=c("Treatment","D","C"))
 res$padj[is.na(res$padj)] <- 1
@@ -277,6 +277,6 @@ nrow(res_signif)
 
 # sort
 res_signif <- res_signif[order(abs(res_signif$log2FoldChange),decreasing = T),] 
-write.csv(res_signif,"../results/DE_SE_T4_drought.csv",row.names=T)
+write.csv(res_signif,"./results/DE_SE_T4_drought.csv",row.names=T)
 
 ```

@@ -42,8 +42,8 @@ library(dplyr)
 library(tidyverse)
 library(ggpubr)
 
-load("diffExp_T4.RData")
-exTDB_taxa <- read.table("../../data/exTDB_ids_taxa.txt", sep = "\t", fill = T)
+load("../seq_data/diffExp_T4.RData")
+exTDB_taxa <- read.table("../seq_data/exTDB_ids_taxa.txt", sep = "\t", fill = T)
 colnames(exTDB_taxa) <- c('Transcript', 'Kingdom', 'Phylum', 'Class', 'Order', 'Family', 'Genus', 'Species')
 
 dr_es_tax <- drought_es %>% 
@@ -65,7 +65,7 @@ dr_int_tax <- int_all  %>%
   mutate(country = "Interaction")
 
 tax_all <- rbind(dr_es_tax, dr_se_tax, dr_int_tax) %>%
-  mutate_all(na_if,"") %>%
+  mutate_if(is.character, list(~na_if(.,""))) %>%
   mutate(Phylum = ifelse(is.na(Phylum), "Unknown", Phylum))
 
 top_taxa <- tax_all %>% 
@@ -78,12 +78,14 @@ top_enz <- tax_all %>%
   group_by(enz_family) %>%
   summarise(sum = sum(nsig)) %>%
   arrange(desc(sum)) %>%
-  filter(sum >= 5)
+  filter(sum >= 3)
 
 tax_all <- tax_all %>%
   mutate(Phylum = ifelse(Phylum %in% top_taxa$Phylum, Phylum, "Others")) %>%
   filter(enz_family %in% top_enz$enz_family)
+
 tax_all$country <- factor(tax_all$country, levels = c("Spain", "Sweden", "Interaction"), labels = c("Spain", "Sweden", "Across countries"))
+tax_all$Phylum <- factor(tax_all$Phylum, levels = c("Acidobacteria", "Actinobacteria", "Ascomycota", "Bacteroidetes", "Basidiomycota", "Firmicutes", "Proteobacteria", "Streptophyta", "Verrucomicrobia", "Others", "Unknown"))
 
 library(ggh4x)
 
@@ -91,9 +93,12 @@ ggplot(tax_all, aes(x = nsig, y = enz_family, fill = Phylum)) +
   geom_col(position = "stack") +
   facet_nested(enz_class ~ country + condition, scales = "free_y", space = "free") +
   theme_light(base_size = 16) +
-  scale_fill_manual(values = c("#46ACC8", "#CEAB07", "#006400","#35274A" ,"#bdb76b", "#79402E","#81A88D","#9986A5","#EAD3BF","#DD8D29","#8D8680")) +
+  scale_fill_manual(values = c("#46ACC8", "#CEAB07", "#006400","#35274A" ,"#bdb76b", "#79402E","#9986A5","#81A88D","#DD8D29","#EAD3BF","#8D8680")) +
   xlab(label = "Number of DE genes") +
   theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank()) +  ylab("CAZy enzyme family")
+
+ggsave("../figures/taxa_func_plot.jpg", width = 30, height = 30, units = "cm")
+
 ```
 
 ```{r}

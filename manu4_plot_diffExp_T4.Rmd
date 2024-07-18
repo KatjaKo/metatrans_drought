@@ -24,23 +24,23 @@ library(treemapify)
 
 ```{r import, message=FALSE, warning=FALSE}
 
-tdb_annot <- read.table("../../seq_data/enzID_cls_fam.map.tsv", sep = "\t", header = F, row.names = 1)
+tdb_annot <- read.table("../seq_data/enzID_cls_fam.map.tsv", sep = "\t", header = F, row.names = 1)
 colnames(tdb_annot) <- c("enz_class", "enz_family")
 
 # Effect of drought in Spain
-de_d_es <- read.csv("../results/DE_T4_D_ES.tsv", sep = "\t", header = T, row.names = 1)
+de_d_es <- read.csv("./results/DE_T4_D_ES.tsv", sep = "\t", header = T, row.names = 1)
 
 # Effect of drought in Sweden
-de_d_se <- read.csv("../results/DE_T4_D_SE.tsv", sep = "\t", header = T, row.names = 1)
+de_d_se <- read.csv("./results/DE_T4_D_SE.tsv", sep = "\t", header = T, row.names = 1)
 
 # Effect of drought and different response in countries
-de_int <- read.csv("../results/DE_T4_interaction.tsv", sep = "\t", header = T, row.names = 1)
+de_int <- read.csv("./results/DE_T4_interaction.tsv", sep = "\t", header = T, row.names = 1)
 
 # Effect of country in control
-de_cont_all <- read.csv("../results/DE_T4_ESvsSE_C.tsv", sep = "\t", header = T, row.names = 1)
+de_cont_all <- read.csv("./results/DE_T4_ESvsSE_C.tsv", sep = "\t", header = T, row.names = 1)
 
 # Effect of country in drought
-de_drought_all <- read.csv("../results/DE_T4_ESvsSE_D.tsv", sep = "\t", header = T, row.names = 1)
+de_drought_all <- read.csv("./results/DE_T4_ESvsSE_D.tsv", sep = "\t", header = T, row.names = 1)
 
 ```
 
@@ -118,7 +118,7 @@ ovr_plot_drought$test <- "Drought-All"
 
 ovr_nsig_data <- rbind(ovr_plot_es, ovr_plot_se, ovr_plot_int, ovr_plot_cont, ovr_plot_drought)
 
-save.image("../../seq_data/diffExp_T4.RData")
+save.image("../seq_data/diffExp_T4.RData")
 
 ```
 
@@ -126,7 +126,7 @@ save.image("../../seq_data/diffExp_T4.RData")
 
 ```{r plot overall, message=FALSE, warning=FALSE}
 
-load("../../seq_data/diffExp_T4.RData")
+load("../seq_data/diffExp_T4.RData")
 
 ovr_nsig_data <- ovr_nsig_data %>%
   mutate(Main_test = ifelse(any(grepl("Control-", test)), "Treatment", "Country"))
