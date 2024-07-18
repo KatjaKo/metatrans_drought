@@ -398,10 +398,10 @@ PCA_T0 <- ggplot() + geom_point(data=PCA_vst_ID_T0, mapping=aes(x=PC1, y=PC2, co
           panel.grid.minor = element_blank()) + xlab("PC1 (46% variance)") +  ylab("PC2 (13% variance)") +
     scale_color_manual(values=c("#79402E","#46acc8")) + labs(colour = "Country", shape= "Treatment") + guides(color = guide_legend(order = 1),
          shape = guide_legend(order = 2)) +
-  theme(axis.text = element_text(size = 12)) + 
-    theme(axis.title = element_text(size = 12)) +
-    theme(legend.title = element_text(size = 12)) + 
-    theme(legend.text = element_text(size = 12))
+  theme(axis.text = element_text(size = 14)) + 
+    theme(axis.title = element_text(size = 14)) +
+    theme(legend.title = element_text(size = 14)) + 
+    theme(legend.text = element_text(size = 14))
 
 ggsave("../figures/PCA_T0_enzID.jpeg", width = 20, height = 15, units = "cm")
 
@@ -473,10 +473,10 @@ PCA_T4 <- ggplot() + geom_point(data=PCA_vst_ID_T4, mapping=aes(x=PC1, y=PC2, co
           panel.grid.minor = element_blank()) + xlab("PC1 (26% variance)") +  ylab("PC2 (23% variance)") +
     scale_color_manual(values=c("#79402E","#46acc8")) + labs(colour = "Country", shape= "Treatment") + guides(color = guide_legend(order = 1),
          shape = guide_legend(order = 2)) +
-  theme(axis.text = element_text(size = 12)) + 
-    theme(axis.title = element_text(size = 12)) +
-    theme(legend.title = element_text(size = 12)) + 
-    theme(legend.text = element_text(size = 12))
+  theme(axis.text = element_text(size = 14)) + 
+    theme(axis.title = element_text(size = 14)) +
+    theme(legend.title = element_text(size = 14)) + 
+    theme(legend.text = element_text(size = 14))
 
 ggsave("../figures/PCA_T4_enzID.jpeg", width = 20, height = 15, units = "cm")
 

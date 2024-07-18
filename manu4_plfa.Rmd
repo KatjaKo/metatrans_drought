@@ -250,7 +250,7 @@ resp_summary <- data_summary(metadata_plfa, varname="respiration",
 resp_summary$Country <- factor(resp_summary$Country, levels = c("ES","SE"), labels = c("Spain", "Sweden"))
 resp_summary$Treatment <- factor(resp_summary$Treatment,levels = c("C","D"), labels = c("Control", "Drought"))
 
-ggplot(resp_summary, aes(Time, respiration)) +
+soil_resp_plot <- ggplot(resp_summary, aes(Time, respiration)) +
     geom_errorbar(
     aes(ymin = respiration-se, ymax = respiration+se, color = Treatment),
     position = position_dodge(0.3), width = 0.3,size=0.8
@@ -333,6 +333,16 @@ coef(summary(model_resp_SE))
 
 ```
 ***Time effect, no treatment***
+
+```{r merge water content and respiration, message=FALSE, warning=FALSE}
+
+wc_plot <- wc_plot + theme(legend.position = "none")
+
+ggarrange(wc_plot, soil_resp_plot, labels=c("a)", "b)"), ncol=2, common.legend = TRUE, legend = "right")
+
+ggsave("figures/wc_resp_merged.jpeg", width = 50, height = 30, units = "cm")
+
+```
 
 # PLFA 
 + plot nmol/g 
@@ -1010,7 +1020,7 @@ ggplot(plfa_all, aes(x=WC, y=Respiration, color=Country), size=6) + geom_point()
 
 ```{r PLFA group, message=FALSE, warning=FALSE}
 
-plfa_group <- read.csv("C:/Users/Katja/Box/PhD Lund Katja/RNA 2020_2021/PLFA/norm_all_plfa.csv", header = T, na.strings = "NA", row.names = 1)
+plfa_group <- read.csv("C:/Users/Katja/Box/PhD Katja/RNA 2020_2021/PLFA/norm_all_plfa.csv", header = T, na.strings = "NA", row.names = 1)
 colnames(plfa_group)
 
 plfa_group_filt <- plfa_group %>%
